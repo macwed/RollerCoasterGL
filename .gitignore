@@ -1,0 +1,36 @@
+# --- IDE/Editor junk ---
+.idea/
+.vscode/
+*.iml
+
+# --- Build artefacts ---
+build/
+cmake-build-*/
+out/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db
+
+# --- CMake artefacts ---
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# --- Others (optional) ---
+*.log
+*.user
+*.swp
+
+# --- Dependency management ---
+vcpkg_installed/
+vcpkg_buildtrees/
+vcpkg_packages/
