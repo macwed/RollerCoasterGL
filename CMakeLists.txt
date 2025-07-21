@@ -10,5 +10,4 @@ endif()
 
 add_executable(RollerCoasterGL main.cpp SimplexNoise.cpp
         Array_2D.hpp
-        cmake-build-debug/terrain.hpp
         SimplexNoise.hpp)
