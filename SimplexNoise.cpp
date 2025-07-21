@@ -18,7 +18,8 @@ SimplexNoise::SimplexNoise(unsigned seed) : seed_(seed) {
     init_gradient_table();
 }
 
-float SimplexNoise::noise(float x, float y) const {
+float SimplexNoise::noise(float x, float y) const
+{
     //skewing
     float s = (x + y) * F2;
     int i = static_cast<int>(std::floor(x + s));
@@ -36,14 +37,17 @@ float SimplexNoise::noise(float x, float y) const {
         i1 = 0; j1 = 1;
     }
 
-    unsigned gi0 = perm_[(perm_[((i % 256) + 256) % 256] + ((j % 256) + 256)) % 256] % 32;
-    unsigned gi1 = perm_[(perm_[((i + i1) % 256 + 256) % 256] + ((j + j1) % 256 + 256)) % 256] % 32;
-    unsigned gi2 = perm_[(perm_[((i + 1) % 256 + 256) % 256] + ((j + 1) % 256 + 256)) % 256] % 32;
+    int ii = i & 255;
+    int jj = j & 255;
 
-    float x1 = x0 - i1;
-    float y1 = y0 - j1;
-    float x2 = x0 - 1.0f;
-    float y2 = y0 - 1.0f;
+    unsigned gi0 = perm_[(ii) + perm_[(jj)]] % 16;
+    unsigned gi1 = perm_[(ii + i1) + perm_[(jj + j1)]] % 16;
+    unsigned gi2 = perm_[(ii + 1) + perm_[(jj + 1)]] % 16;
+
+    float x1 = x0 - i1 + G2;
+    float y1 = y0 - j1 + G2;
+    float x2 = x0 - 1.0f + 2 * G2;
+    float y2 = y0 - 1.0f + 2 * G2;
 
     float dot0 = glm::dot(gradient_table_[gi0], glm::vec2(x0, y0));
     float dot1 = glm::dot(gradient_table_[gi1], glm::vec2(x1, y1));
@@ -61,23 +65,28 @@ float SimplexNoise::noise(float x, float y) const {
 
     float noise = 70.0f * (contrib0 + contrib1 + contrib2);
 
-    return noise;
+    return noise * 0.5f + 0.5f;
 }
 
 void SimplexNoise::init_perm_() {
     std::mt19937 gen(seed_);
-    perm_.resize(256);
+    perm_.resize(256 * 2);
     for (int i = 0; i < 256; i++) {
         perm_[i] = i;
     }
-    std::ranges::shuffle(perm_, gen);
+    std::shuffle(perm_.begin(), perm_.begin() + 256, gen);
+
+    for (int i = 0; i < 256; i++)
+    {
+        perm_[256 + i] = perm_[i];
+    }
 }
 
 
 void SimplexNoise::init_gradient_table() {
     gradient_table_.clear();
-    for (int i = 0; i < 32; i++) {
-        float angle = i * 2.0f * static_cast<float>(M_PI) / 32.0f;
+    for (int i = 0; i < 16; i++) {
+        float angle = i * 2.0f * static_cast<float>(M_PI) / 16.0f;
         gradient_table_.emplace_back(std::cos(angle), std::sin(angle));
     }
 }
