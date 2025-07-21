@@ -36,9 +36,9 @@ float SimplexNoise::noise(float x, float y) const {
         i1 = 0; j1 = 1;
     }
 
-    unsigned gi0 = perm_[(perm_[i % 256] + j) % 256 + 256] % 32;
-    unsigned gi1 = perm_[(perm_[(i + i1) % 256] + (j + j1)) % 256 + 256] % 32;
-    unsigned gi2 = perm_[(perm_[(i + 1) % 256] + (j + 1)) % 256 + 256] % 32;
+    unsigned gi0 = perm_[(perm_[((i % 256) + 256) % 256] + ((j % 256) + 256)) % 256] % 32;
+    unsigned gi1 = perm_[(perm_[((i + i1) % 256 + 256) % 256] + ((j + j1) % 256 + 256)) % 256] % 32;
+    unsigned gi2 = perm_[(perm_[((i + 1) % 256 + 256) % 256] + ((j + 1) % 256 + 256)) % 256] % 32;
 
     float x1 = x0 - i1;
     float y1 = y0 - j1;
@@ -61,7 +61,7 @@ float SimplexNoise::noise(float x, float y) const {
 
     float noise = 70.0f * (contrib0 + contrib1 + contrib2);
 
-    return noise * 0.5f + 0.5f;
+    return noise;
 }
 
 void SimplexNoise::init_perm_() {

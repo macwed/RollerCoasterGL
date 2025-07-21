@@ -12,8 +12,8 @@
 template <typename Type>
 class Array_2D {
     public:
-        Array_2D(int width, int length, Type initVal = Type()) :
-            width_(width), length_(length), data_(width * length, initVal) {};
+        Array_2D(int width, int height, Type initVal = Type()) :
+            width_(width), height_(height), data_(width * height, initVal) {};
         Type& operator()(int x, int y)
         {
             return data_[index(x, y)];
@@ -21,7 +21,7 @@ class Array_2D {
 
         const Type& operator()(int x, int y) const
         {
-            if (x < 0 || x >= width_ || y < 0 || y >= length_)
+            if (x < 0 || x >= width_ || y < 0 || y >= height_)
                 throw std::out_of_range("Array_2D::operator()");
             return data_[index(x, y)];
         }
@@ -30,9 +30,9 @@ class Array_2D {
         {
             return width_;
         }
-        [[nodiscard]] int length() const
+        [[nodiscard]] int height() const
         {
-            return length_;
+            return height_;
         }
         Type* data()
         {
@@ -45,7 +45,7 @@ class Array_2D {
 
         Type* beginRow(int y)
         {
-            if (y >= 0 && y < length_)
+            if (y >= 0 && y < height_)
             {
                 return data_.data() + y * width_;
             }
@@ -54,7 +54,7 @@ class Array_2D {
 
         Type* endRow(int y)
         {
-            if (y >= 0 && y < length_)
+            if (y >= 0 && y < height_)
             {
                 return data_.data() + (y + 1) * width_; // zgodnie z STL zwraca indeks ZA ostatnim elem wiersza
             }
@@ -63,7 +63,7 @@ class Array_2D {
 
         const Type* beginRow(int y) const
         {
-            if (y >= 0 && y < length_)
+            if (y >= 0 && y < height_)
             {
                 return data_.data() + y * width_;
             }
@@ -71,7 +71,7 @@ class Array_2D {
         }
         const Type* endRow(int y) const
         {
-            if (y >= 0 && y < length_)
+            if (y >= 0 && y < height_)
             {
                 return data_.data() + (y + 1) * width_;
             }
@@ -80,7 +80,7 @@ class Array_2D {
 
         std::vector<Type> getRow(int y)
         {
-            if (y < 0 || y >= length_ || beginRow(y) == endRow(y))
+            if (y < 0 || y >= height_ || beginRow(y) == endRow(y))
             {
                 throw std::out_of_range("Array_2D::getRow");
             }
@@ -96,8 +96,8 @@ class Array_2D {
             {
                 throw std::out_of_range("Array_2D::getCol");
             }
-                std::vector<Type> col(length_);
-                for (size_t i = 0; i < length_; i++)
+                std::vector<Type> col(height_);
+                for (size_t i = 0; i < height_; i++)
                 {
                     size_t colIndex = i * width_ + x;
                     col[i] = data_[colIndex];
@@ -112,7 +112,7 @@ class Array_2D {
         }
         Type* end()
         {
-            return data_.data() + width_ * length_;
+            return data_.data() + width_ * height_;
         }
         const Type* begin() const
         {
@@ -120,7 +120,7 @@ class Array_2D {
         }
         const Type* end() const
         {
-            return data_.data() + width_ * length_;
+            return data_.data() + width_ * height_;
         }
 
         void fill(Type val)
@@ -150,15 +150,15 @@ class Array_2D {
 
         void normalize()
         {
-            Type maxVal = *maxVal();
-            Type minVal = *minVal();
+            Type max = *maxVal();
+            Type min = *minVal();
 
-            if (maxVal - minVal != Type())
+            if (max - min != Type())
             {
                 std::cout << "Normalizing..." << std::endl;
                 for (Type& val : data_)
                 {
-                    val = (val - minVal) / (maxVal - minVal);
+                    val = (val - min) / (max - min);
                 }
             } else
             {
@@ -168,7 +168,7 @@ class Array_2D {
         }
 
     private:
-        int width_, length_;
+        int width_, height_;
         std::vector<Type> data_;
         [[nodiscard]] int index(int x, int y) const
         {

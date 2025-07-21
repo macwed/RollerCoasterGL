@@ -8,6 +8,7 @@ if(DEFINED ENV{VCPKG_ROOT})
     set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
 endif()
 
-add_executable(RollerCoasterGL main.cpp
+add_executable(RollerCoasterGL main.cpp SimplexNoise.cpp
         Array_2D.hpp
-        cmake-build-debug/terrain.hpp)
+        cmake-build-debug/terrain.hpp
+        SimplexNoise.hpp)
