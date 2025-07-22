@@ -3,10 +3,10 @@
 #include "Array_2D.hpp"
 #include "SimplexNoise.hpp"
 
-constexpr int MAP_WIDTH = 2048;
-constexpr int MAP_HEIGHT = 2048;
-constexpr unsigned SEED = 561245;
-constexpr float SCALE = 0.002f;
+constexpr int MAP_WIDTH = 1024;
+constexpr int MAP_HEIGHT = 1024;
+constexpr unsigned SEED = 123432;
+constexpr float SCALE = 0.001f;
 constexpr float OFFSET = 131.0f;
 
 void savePGM(const Array_2D<float>& arr, const std::string& filename)
@@ -17,7 +17,7 @@ void savePGM(const Array_2D<float>& arr, const std::string& filename)
     {
         for (int x = 0; x < arr.width(); x++)
         {
-            int value = static_cast<int>(std::clamp(arr(x, y), 0.0f, 1.0f) * 255.0f);
+            int value = static_cast<int>(arr(x, y) * 255.0f);
             file << value << " ";
         }
         file << "\n";
@@ -33,26 +33,22 @@ int main()
     {
         for (int x = 0; x < heightmap.width(); x++)
         {
-            float height = simplexnoise.fbm(static_cast<float>(x) * SCALE + OFFSET, static_cast<float>(y) * SCALE + OFFSET, 8, 0.5f);
-            height = pow(height, 1.5);
+            float height = simplexnoise.fbm(static_cast<float>(x) * SCALE + OFFSET, static_cast<float>(y) * SCALE + OFFSET, 8, 2.50f ,0.4f);
             heightmap(y, x) = height;
         }
     }
 
-    //heightmap.normalize();
+    heightmap.normalize();
 
-    /*for (int y = 0; y < heightmap.height(); y++)
+    for (int i = 0; i < heightmap.height(); i++)
     {
-        for (int x = 0; x < heightmap.width(); x++) {
-            //if (heightmap(x, y) >= 1.0f || heightmap(x, y) <= 0.0f)
-            {
-                std::cout << heightmap(x, y) << " ";
-            }
+        for (int j = 0; j < heightmap.width(); j++)
+        {
+            heightmap(i, j) = pow(heightmap(i, j), 1.2);
         }
-        std::cout << std::endl;
-    }*/
+    }
 
-    std::cout << "Height(0,0): " << heightmap(0, 0) << std::endl;
+    std::cout << "Height max: " << *heightmap.maxVal() << " Height min: " << *heightmap.minVal() << std::endl;
     savePGM(heightmap, "heightmap2.pnm");
 
     return 0;

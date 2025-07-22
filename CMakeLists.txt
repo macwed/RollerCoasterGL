@@ -11,4 +11,6 @@ endif()
 add_executable(RollerCoasterGL main.cpp SimplexNoise.cpp
         Array_2D.hpp
         SimplexNoise.hpp
+        Terrain.hpp
+        Terrain.cpp
 )
