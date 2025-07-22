@@ -65,24 +65,24 @@ float SimplexNoise::noise(float x, float y) const
 
     float noise = 70.0f * (contrib0 + contrib1 + contrib2);
 
-    return noise * 0.5f + 0.5f;
+    return noise;
 }
 
-float SimplexNoise::fbm(float x, float y, int octaves, float persistence = 0.5f) const {
+float SimplexNoise::fbm(float x, float y, int octaves, float lacunarity = 2.0f, float persistence = 0.5f) const {
 
     float total = 0.0f;
-    float frequency = 1.0f;
+    float frequency = 1.6f;
     float amplitude = 1.0f;
     float maxValue = 0.0f; // do normalizacji
 
     for (int i = 0; i < octaves; i++) {
         total += noise(x * frequency, y * frequency) * amplitude;
         maxValue += amplitude;
-        frequency *= 2.0f;
+        frequency *= lacunarity;
         amplitude *= persistence;
     }
 
-    return total / maxValue;
+    return total;
 }
 
 void SimplexNoise::init_perm_() {
