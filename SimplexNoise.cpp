@@ -15,7 +15,7 @@ constexpr float G2 = 0.2113248654f;  // (3-sqrt(3))/6
 
 SimplexNoise::SimplexNoise(unsigned seed) : seed_(seed) {
     init_perm_();
-    init_gradient_table();
+    init_gradient_table_();
 }
 
 float SimplexNoise::noise(float x, float y) const
@@ -68,6 +68,23 @@ float SimplexNoise::noise(float x, float y) const
     return noise * 0.5f + 0.5f;
 }
 
+float SimplexNoise::fbm(float x, float y, int octaves, float persistence = 0.5f) const {
+
+    float total = 0.0f;
+    float frequency = 1.0f;
+    float amplitude = 1.0f;
+    float maxValue = 0.0f; // do normalizacji
+
+    for (int i = 0; i < octaves; i++) {
+        total += noise(x * frequency, y * frequency) * amplitude;
+        maxValue += amplitude;
+        frequency *= 2.0f;
+        amplitude *= persistence;
+    }
+
+    return total / maxValue;
+}
+
 void SimplexNoise::init_perm_() {
     std::mt19937 gen(seed_);
     perm_.resize(256 * 2);
@@ -83,7 +100,7 @@ void SimplexNoise::init_perm_() {
 }
 
 
-void SimplexNoise::init_gradient_table() {
+void SimplexNoise::init_gradient_table_() {
     gradient_table_.clear();
     for (int i = 0; i < 16; i++) {
         float angle = i * 2.0f * static_cast<float>(M_PI) / 16.0f;

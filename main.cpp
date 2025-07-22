@@ -5,8 +5,8 @@
 
 constexpr int MAP_WIDTH = 2048;
 constexpr int MAP_HEIGHT = 2048;
-constexpr unsigned SEED = 56;
-constexpr float SCALE = 0.0012f;
+constexpr unsigned SEED = 561245;
+constexpr float SCALE = 0.002f;
 constexpr float OFFSET = 131.0f;
 
 void savePGM(const Array_2D<float>& arr, const std::string& filename)
@@ -33,7 +33,9 @@ int main()
     {
         for (int x = 0; x < heightmap.width(); x++)
         {
-            heightmap(y, x) = simplexnoise.noise(static_cast<float>(x) * SCALE + OFFSET, static_cast<float>(y) * SCALE + OFFSET);
+            float height = simplexnoise.fbm(static_cast<float>(x) * SCALE + OFFSET, static_cast<float>(y) * SCALE + OFFSET, 8, 0.5f);
+            height = pow(height, 1.5);
+            heightmap(y, x) = height;
         }
     }
 
@@ -51,7 +53,7 @@ int main()
     }*/
 
     std::cout << "Height(0,0): " << heightmap(0, 0) << std::endl;
-    savePGM(heightmap, "heightmap.pnm");
+    savePGM(heightmap, "heightmap2.pnm");
 
     return 0;
 }
