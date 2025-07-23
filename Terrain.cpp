@@ -3,6 +3,8 @@
 //
 
 #include <vector>
+#include <glad.h>
+#include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include "Array_2D.hpp"
 #include "SimplexNoise.hpp"
@@ -11,10 +13,85 @@
 
 
 Terrain::Terrain(int width, int height, unsigned seed)
-    : width_(width), height_(height), noise_(seed), heightmap_(width, height) {}
+    : width_(width), height_(height), heightmap_(width, height), noise_(seed), vbo_(0), vao_(0), ibo_(0) {}
+Terrain::~Terrain() {
+    if (vbo_) {glDeleteBuffers(1, &vbo_);}
+    if (ibo_) {glDeleteBuffers(1, &ibo_);}
+    if (vao_) {glDeleteVertexArrays(1, &vao_);}
+}
 
-Terrain::generate(float frequency, int octaves, float lacunarity, float persistence, float exponent);
-Terrain::uploadToGPU();
-Terrain::draw();
 
-Terrain::getHeight(int x, int y) const;
+void Terrain::generate(float scale, float frequency, int octaves, float lacunarity, float persistence, float exponent) {
+
+
+    for (int y = 0; y < height_; y++) {
+        for (int x = 0; x < width_; x++) {
+            float h = noise_.fbm(x * scale + offset_, y * scale + offset_, frequency, octaves, lacunarity, persistence);
+            heightmap_(x, y) = h;
+        }
+    }
+    heightmap_.normalize();
+
+    vertices_.clear();
+    indices_.clear();
+    vertices_.reserve(width_ * height_);
+    indices_.reserve((width_ - 1) * (height_ - 1) * 6);
+
+    for (int y = 0; y < height_; y++) {
+        for (int x = 0; x < width_; x++) {
+            vertices_.emplace_back(x, pow(heightmap_(x, y), exponent), y);
+        }
+    }
+    for (int y = 0; y < height_ - 1; y++) {
+        for (int x = 0; x < width_ - 1; x++) {
+            unsigned int x0y0 = y * width_ + x;
+            unsigned int x0y1 = (y + 1) * width_ + x;
+            unsigned int x1y0 = y * width_ + (x + 1);
+            unsigned int x1y1 = (y + 1) * width_ + (x + 1);
+
+            //triangulacja siatki
+            indices_.emplace_back(x0y0);
+            indices_.emplace_back(x0y1);
+            indices_.emplace_back(x1y0);
+
+            indices_.emplace_back(x0y1);
+            indices_.emplace_back(x1y1);
+            indices_.emplace_back(x1y0);
+        }
+    }
+
+    normals_.resize(vertices_.size(), glm::vec3(0.0f));
+
+    //oblicz face normals dla trójkątów
+    for (size_t i = 0; i < indices_.size(); i+=3) {
+        const unsigned int ia = indices_[i];
+        const unsigned int ib = indices_[i+1];
+        const unsigned int ic = indices_[i+2];
+
+        const glm::vec3& A   = vertices_[ia];
+        const glm::vec3& B   = vertices_[ib];
+        const glm::vec3& C   = vertices_[ic];
+
+        glm::vec3 U = B - A;
+        glm::vec3 V = C - A;
+        glm::vec3 N = glm::normalize(glm::cross(U, V));
+
+        normals_[ia] += N;
+        normals_[ib] += N;
+        normals_[ic] += N;
+
+        for (auto& n : normals_) n = glm::normalize(n);
+    }
+}
+void Terrain::uploadToGPU() {
+
+}
+
+void Terrain::draw() {
+
+}
+
+float Terrain::getHeight(int x, int y) const {
+    if (x < 0 || x >= width_ || y < 0 || y >= height_) return 0.0f;
+    return heightmap_(x, y);
+}
