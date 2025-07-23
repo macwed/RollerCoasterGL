@@ -148,6 +148,10 @@ class Array_2D {
             return std::max_element(data_.begin(), data_.end());
         }
 
+        size_t size() {
+            return data_.size();
+        }
+
         void normalize()
         {
             Type max = *maxVal();
