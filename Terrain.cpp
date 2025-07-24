@@ -26,7 +26,7 @@ void Terrain::generate(float scale, float frequency, int octaves, float lacunari
 
     for (int y = 0; y < height_; y++) {
         for (int x = 0; x < width_; x++) {
-            float h = noise_.fbm(x * scale + offset_, y * scale + offset_, frequency, octaves, lacunarity, persistence);
+            float h = noise_.fbm(static_cast<float>(x) * scale + offset_, static_cast<float>(y) * scale + offset_, frequency, octaves, lacunarity, persistence);
             heightmap_(x, y) = h;
         }
     }
@@ -85,10 +85,42 @@ void Terrain::generate(float scale, float frequency, int octaves, float lacunari
 }
 void Terrain::uploadToGPU() {
 
+    if (vao_) glDeleteVertexArrays(1, &vao_);
+    if (vbo_) glDeleteBuffers(1, &vbo_);
+    if (ibo_) glDeleteBuffers(1, &ibo_);
+
+    glGenVertexArrays(1, &vao_);
+    glGenBuffers(1, &vbo_);
+    glGenBuffers(1, &ibo_);
+
+    glBindVertexArray(vao_);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_);
+    glBufferData(GL_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(vertices_.size() * sizeof(glm::vec3)),
+                 vertices_.data(),
+                 GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), nullptr);
+    glEnableVertexAttribArray(0);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+        static_cast<GLsizeiptr>(indices_.size() * sizeof(unsigned int)),
+        indices_.data(),
+        GL_STATIC_DRAW);
+
+    glBindVertexArray(0);
 }
 
-void Terrain::draw() {
+void Terrain::draw() const {
 
+    glBindVertexArray(vao_);
+    glDrawElements(GL_TRIANGLES,
+        static_cast<GLsizei>(indices_.size()),
+        GL_UNSIGNED_INT,
+        nullptr);
+    glBindVertexArray(0);
 }
 
 float Terrain::getHeight(int x, int y) const {

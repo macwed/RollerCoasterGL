@@ -18,9 +18,9 @@ class Terrain {
 
         void generate(float scale, float frequency = 0.01f, int octaves = 8, float lacunarity = 2.0f, float persistence = 0.5f, float exponent = 1.0f);
         void uploadToGPU();
-        void draw();
+        void draw() const;
 
-        float getHeight(int x, int y) const;
+        [[nodiscard]] float getHeight(int x, int y) const;
 
     private:
         static constexpr float offset_ = 137.0f;
