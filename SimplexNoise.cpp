@@ -26,9 +26,9 @@ float SimplexNoise::noise(float x, float y) const
     int j = static_cast<int>(std::floor(y + s));
 
     //unskewing
-    float t = (i + j) * G2;
-    float x0 = x - (i - t);
-    float y0 = y - (j - t);
+    float t = static_cast<float>((i + j)) * G2;
+    float x0 = x - (static_cast<float>(i) - t);
+    float y0 = y - (static_cast<float>(j) - t);
 
     int i1, j1;
     if (x0 > y0) {
@@ -44,8 +44,8 @@ float SimplexNoise::noise(float x, float y) const
     unsigned gi1 = perm_[(ii + i1) + perm_[(jj + j1)]] % 16;
     unsigned gi2 = perm_[(ii + 1) + perm_[(jj + 1)]] % 16;
 
-    float x1 = x0 - i1 + G2;
-    float y1 = y0 - j1 + G2;
+    float x1 = x0 - static_cast<float>(i1) + G2;
+    float y1 = y0 - static_cast<float>(j1) + G2;
     float x2 = x0 - 1.0f + 2 * G2;
     float y2 = y0 - 1.0f + 2 * G2;
 
@@ -59,9 +59,9 @@ float SimplexNoise::noise(float x, float y) const
     float t2 = 0.5f - x2*x2 - y2*y2;
 
     float contrib0 = 0.0f, contrib1 = 0.0f, contrib2 = 0.0f;
-    if (t0 > 0) contrib0 = pow(t0, 4) * dot0;
-    if (t1 > 0) contrib1 = pow(t1, 4) * dot1;
-    if (t2 > 0) contrib2 = pow(t2, 4) * dot2;
+    if (t0 > 0) contrib0 = static_cast<float>(pow(t0, 4)) * dot0;
+    if (t1 > 0) contrib1 = static_cast<float>(pow(t1, 4)) * dot1;
+    if (t2 > 0) contrib2 = static_cast<float>(pow(t2, 4)) * dot2;
 
     float noise = 70.0f * (contrib0 + contrib1 + contrib2);
 
@@ -100,7 +100,7 @@ void SimplexNoise::init_perm_() {
 void SimplexNoise::init_gradient_table_() {
     gradient_table_.clear();
     for (int i = 0; i < 16; i++) {
-        float angle = i * 2.0f * static_cast<float>(M_PI) / 16.0f;
+        float angle = static_cast<float>(i) * 2.0f * static_cast<float>(M_PI) / 16.0f;
         gradient_table_.emplace_back(std::cos(angle), std::sin(angle));
     }
 }

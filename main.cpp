@@ -33,7 +33,7 @@ int main()
     {
         for (int x = 0; x < heightmap.width(); x++)
         {
-            float height = simplexnoise.fbm(static_cast<float>(x) * SCALE + OFFSET, static_cast<float>(y) * SCALE + OFFSET, 8, 2.50f ,0.4f);
+            float height = simplexnoise.fbm(static_cast<float>(x) * SCALE + OFFSET, static_cast<float>(y) * SCALE + OFFSET, 2.50f, 8 ,0.4f);
             heightmap(y, x) = height;
         }
     }
@@ -44,7 +44,7 @@ int main()
     {
         for (int j = 0; j < heightmap.width(); j++)
         {
-            heightmap(i, j) = pow(heightmap(i, j), 1.2);
+            heightmap(i, j) = static_cast<float>(pow(heightmap(i, j), 1.2));
         }
     }
 
