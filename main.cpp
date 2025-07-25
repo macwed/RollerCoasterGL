@@ -14,10 +14,10 @@
 constexpr int WIN_WIDTH = 1280;
 constexpr int WIN_HEIGHT = 720;
 
-constexpr int MAP_WIDTH = 1024;
-constexpr int MAP_HEIGHT = 1024;
-constexpr unsigned SEED = 123432;
-constexpr float SCALE = 0.001f;
+constexpr int MAP_WIDTH = 128;
+constexpr int MAP_HEIGHT = 128;
+constexpr unsigned SEED = 428432;
+constexpr float SCALE = 0.1f;
 constexpr float OFFSET = 131.0f;
 
 std::string loadShaderSource(const std::string& filename) {
@@ -115,27 +115,35 @@ int main()
     GLuint shaderProgram = createShaderProgram(vertexSource, fragmentSource);
 
     glm::mat4 model = glm::mat4(1.0f);
+
+    glm::vec3 center(MAP_WIDTH / 2.0f, 0.0f, MAP_HEIGHT / 2.0f);
+    glm::vec3 eye(MAP_WIDTH / 2.0f, 120.0f, MAP_HEIGHT + 70.0f); // wyżej i dalej!
     glm::mat4 view = glm::lookAt(
-        glm::vec3(64, 100, 180), // pozycja kamery (spróbuj dopasować)
-        glm::vec3(512, 0, 512),    // na co patrzy kamera (środek terenu)
-        glm::vec3(0, 0, 1)       // wektor "góry"
+        eye,        // skąd patrzysz
+        center,     // na co patrzysz (środek mesh)
+        glm::vec3(0, 1, 0)
     );
+
     glm::mat4 projection = glm::perspective(
         glm::radians(45.0f),
-        static_cast<float>(WIN_WIDTH) / static_cast<float>(WIN_HEIGHT),
+        (float)WIN_WIDTH / (float)WIN_HEIGHT,
         0.1f,
-        100.0f
+        1000.0f
     );
 
     Array_2D<float> terrainArray(MAP_WIDTH, MAP_HEIGHT);
     Terrain terrain(MAP_WIDTH, MAP_HEIGHT, SEED);
-    terrain.generate(SCALE, 0.01, 4, 2.0f, 0.5, 1.2);
+    terrain.generate(SCALE, 0.01, 8, 2.0f, 0.5, 1.2, 30.0f);
     terrain.uploadToGPU();
+
+    std::cout << "MaxHeight = " << terrain.maxH() << std::endl;
+    std::cout << "MinHeight = " << terrain.minH() << std::endl;
 
     while (!glfwWindowShouldClose(window)) {
         // --- Tu scena
         glClearColor(0.18f, 0.18f, 0.20f, 1.0f); // Szare tło
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
         // Potem, przed terrain.draw():
         glUseProgram(shaderProgram);
