@@ -21,12 +21,14 @@ Terrain::~Terrain() {
 }
 
 
-void Terrain::generate(float scale, float frequency, int octaves, float lacunarity, float persistence, float exponent) {
+void Terrain::generate(float scale, float frequency, int octaves, float lacunarity, float persistence,
+                            float exponent, float height_scale) {
 
 
     for (int y = 0; y < height_; y++) {
         for (int x = 0; x < width_; x++) {
-            float h = noise_.fbm(static_cast<float>(x) * scale + offset_, static_cast<float>(y) * scale + offset_, frequency, octaves, lacunarity, persistence);
+            float h = noise_.fbm(static_cast<float>(x) * scale + offset_, static_cast<float>(y) * scale + offset_,
+                                    frequency, octaves, lacunarity, persistence);
             heightmap_(x, y) = h;
         }
     }
@@ -39,7 +41,7 @@ void Terrain::generate(float scale, float frequency, int octaves, float lacunari
 
     for (int y = 0; y < height_; y++) {
         for (int x = 0; x < width_; x++) {
-            vertices_.emplace_back(x, pow(heightmap_(x, y), exponent), y);
+            vertices_.emplace_back(x, pow(heightmap_(x, y), exponent) * height_scale, y);
         }
     }
     for (int y = 0; y < height_ - 1; y++) {
@@ -126,4 +128,22 @@ void Terrain::draw() const {
 float Terrain::getHeight(int x, int y) const {
     if (x < 0 || x >= width_ || y < 0 || y >= height_) return 0.0f;
     return heightmap_(x, y);
+}
+
+float Terrain::minH() const
+{
+    float minHeight = std::numeric_limits<float>::max();
+    for (auto& v : vertices_) {
+        minHeight = std::min(minHeight, v.y);
+    }
+    return minHeight;
+}
+float Terrain::maxH() const
+{
+    float maxHeight = std::numeric_limits<float>::lowest();
+    for (auto& v : vertices_) {
+
+        maxHeight = std::max(maxHeight, v.y);
+    }
+    return maxHeight;
 }
