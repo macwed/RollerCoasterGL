@@ -79,9 +79,9 @@ void Terrain::generate(float scale, float frequency, int octaves, float lacunari
         normals_[ia] += N;
         normals_[ib] += N;
         normals_[ic] += N;
-
-        for (auto& n : normals_) n = glm::normalize(n);
     }
+    for (auto& n : normals_) n = glm::normalize(n);
+
 }
 void Terrain::uploadToGPU() {
 
