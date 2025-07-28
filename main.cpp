@@ -119,8 +119,8 @@ int main()
     glm::vec3 center(MAP_WIDTH / 2.0f, 0.0f, MAP_HEIGHT / 2.0f);
     glm::vec3 eye(MAP_WIDTH / 2.0f, 120.0f, MAP_HEIGHT + 70.0f); // wyżej i dalej!
     glm::mat4 view = glm::lookAt(
-        eye,        // skąd patrzysz
-        center,     // na co patrzysz (środek mesh)
+        eye,
+        center,
         glm::vec3(0, 1, 0)
     );
 
@@ -133,33 +133,33 @@ int main()
 
     Array_2D<float> terrainArray(MAP_WIDTH, MAP_HEIGHT);
     Terrain terrain(MAP_WIDTH, MAP_HEIGHT, SEED);
-    terrain.generate(SCALE, 0.01, 8, 2.0f, 0.5, 1.2, 30.0f);
+    terrain.generate(SCALE, 0.01, 8, 2.0f, 0.5, 1.2, 50.0f);
     terrain.uploadToGPU();
 
     std::cout << "MaxHeight = " << terrain.maxH() << std::endl;
     std::cout << "MinHeight = " << terrain.minH() << std::endl;
 
     while (!glfwWindowShouldClose(window)) {
-        // --- Tu scena
+        // --- scena
         glClearColor(0.18f, 0.18f, 0.20f, 1.0f); // Szare tło
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-        // Potem, przed terrain.draw():
         glUseProgram(shaderProgram);
+        glUniform1f(glGetUniformLocation(shaderProgram, "minH"), terrain.minH());
+        glUniform1f(glGetUniformLocation(shaderProgram, "maxH"), terrain.maxH());
 
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
         terrain.draw();
-        // --- Tutaj wywołasz terrain.draw() później ---
 
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
-    // 5. Sprzątanie
+    // Sprzątanie
     glDeleteProgram(shaderProgram);
     glfwDestroyWindow(window);
     glfwTerminate();
