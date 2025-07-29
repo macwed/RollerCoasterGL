@@ -76,6 +76,14 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
 }
 
+bool keys[1024] = {false};
+
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (key >= 0 && key < 1024) {
+        keys[key] = (action == GLFW_PRESS);
+    }
+}
+
 int main()
 {
     glfwSetErrorCallback(glfwErrorCallback);
@@ -117,7 +125,7 @@ int main()
     glm::mat4 model = glm::mat4(1.0f);
 
     glm::vec3 center(MAP_WIDTH / 2.0f, 0.0f, MAP_HEIGHT / 2.0f);
-    glm::vec3 eye(MAP_WIDTH / 2.0f, 120.0f, MAP_HEIGHT + 70.0f); // wyżej i dalej!
+    glm::vec3 eye(MAP_WIDTH / 2.0f, 120.0f, MAP_HEIGHT + 70.0f);
     glm::mat4 view = glm::lookAt(
         eye,
         center,
@@ -138,6 +146,8 @@ int main()
 
     std::cout << "MaxHeight = " << terrain.maxH() << std::endl;
     std::cout << "MinHeight = " << terrain.minH() << std::endl;
+
+    glfwSetKeyCallback(window, keyCallback);
 
     while (!glfwWindowShouldClose(window)) {
         // --- scena

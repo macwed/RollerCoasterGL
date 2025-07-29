@@ -5,9 +5,43 @@
 #include "FreeFlyCam.hpp"
 
 #include <math.h>
+#include <GLFW/glfw3.h>
 #include <glm/trigonometric.hpp>
 #include <glm/detail/func_trigonometric.inl>
 #include <glm/ext/quaternion_geometric.hpp>
+
+void FreeFlyCam::processKeyboard(bool *keys, float deltaTime) {
+    float velocity = moveSpeed * deltaTime;
+
+    if (keys[GLFW_KEY_W])
+        position += front * velocity;
+    if (keys[GLFW_KEY_S])
+        position -= front * velocity;
+    if (keys[GLFW_KEY_A])
+        position -= right * velocity;
+    if (keys[GLFW_KEY_D])
+        position += right * velocity;
+    if (keys[GLFW_KEY_SPACE])
+        position += up * velocity;
+    if (keys[GLFW_KEY_LEFT_SHIFT])
+        position -= up * velocity;
+}
+
+void FreeFlyCam::processMouse(float xOffset, float yOffset) {
+    xOffset *= mouseSensitivity;
+    yOffset *= mouseSensitivity;
+
+    yaw += xOffset;
+    pitch += yOffset;
+
+    if (pitch > 89.0f)
+        pitch = 89.0f;
+    if (pitch < -89.0f)
+        pitch = -89.0f;
+
+    updateVectors();
+}
+
 
 void FreeFlyCam::updateVectors()
 {
