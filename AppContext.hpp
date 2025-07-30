@@ -8,7 +8,26 @@
 #include "Terrain.hpp"
 
 
-struct AppContext {
+struct ProjectConfig
+{
+    int windowWidth, windowHeight;
+
+    glm::vec3 camPos;
+    int mapWidth, mapHeight;
+    unsigned noiseSeed;
+
+    float noiseScale;
+    float noiseFreq;
+    float noiseOctaves;
+    float noiseLacunarity;
+    float noisePersistence;
+    float noiseExponent;
+    float noiseHeightScale;
+
+};
+
+struct AppContext
+{
 
     FreeFlyCam camera;
     Terrain terrain;
@@ -16,9 +35,10 @@ struct AppContext {
     float lastFrame;
     float currentFrame;
     float deltaTime;
-    AppContext() :
-        camera(glm::vec3(50.0f, 50.0f, 150.0f)),
-        terrain(512, 512, 4567890),
+
+    explicit AppContext(const ProjectConfig& cfg) :
+        camera(cfg.camPos),
+        terrain(cfg.mapWidth, cfg.mapHeight, cfg.noiseSeed),
         lastFrame(0.0f),
         currentFrame(0.0f),
         deltaTime(0.0f)
