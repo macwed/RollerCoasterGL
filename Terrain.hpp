@@ -14,7 +14,7 @@
 class Terrain {
     public:
         Terrain(int width, int height, unsigned seed);
-        ~Terrain();
+        void releaseGL();
 
         void generate(float scale, float frequency = 0.01f, int octaves = 8, float lacunarity = 2.0f,
                         float persistence = 0.5f, float exponent = 1.0f, float height_scale = 20.0f);

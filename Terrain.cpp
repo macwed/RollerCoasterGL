@@ -14,10 +14,10 @@
 
 Terrain::Terrain(int width, int height, unsigned seed)
     : width_(width), height_(height), heightmap_(width, height), noise_(seed), vbo_(0), vao_(0), ibo_(0) {}
-Terrain::~Terrain() {
-    if (vbo_) {glDeleteBuffers(1, &vbo_);}
-    if (ibo_) {glDeleteBuffers(1, &ibo_);}
-    if (vao_) {glDeleteVertexArrays(1, &vao_);}
+void Terrain::releaseGL() {
+    if (vbo_) {glDeleteBuffers(1, &vbo_); vbo_ = 0;}
+    if (ibo_) {glDeleteBuffers(1, &ibo_); ibo_ = 0;}
+    if (vao_) {glDeleteVertexArrays(1, &vao_); vao_ = 0;}
 }
 
 
