@@ -15,6 +15,7 @@ FreeFlyCam::FreeFlyCam(glm::vec3 startPos)
     : position(startPos),
         front(0.0f, 0.0f, -1.0f),
         up(0.0f, 1.0f, 0.0f),
+        right(0.0f, 0.0f, 0.0f),
         yaw(-90.0f),
         pitch(0.0f),
         moveSpeed(10.0f),
@@ -63,9 +64,9 @@ glm::mat4 FreeFlyCam::getViewMatrix() const {
 void FreeFlyCam::updateVectors()
 {
     glm::vec3 newFront;
-    newFront.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-    newFront.y = sin(glm::radians(pitch));
-    newFront.z = sin(glm::radians(yaw) * cos(glm::radians(pitch)));
+    newFront.x = static_cast<float>(cos(glm::radians(yaw)) * cos(glm::radians(pitch)));
+    newFront.y = static_cast<float>(sin(glm::radians(pitch)));
+    newFront.z = static_cast<float>(sin(glm::radians(yaw) * cos(glm::radians(pitch))));
 
     front = glm::normalize(newFront);
     right = glm::normalize(glm::cross(front, glm::vec3(0.0f, 1.0f, 0.0f)));

@@ -18,7 +18,6 @@ add_executable(RollerCoasterGL main.cpp
         SimplexNoise.cpp
         Terrain.cpp
         FreeFlyCam.cpp
-        FreeFlyCam.hpp
 )
 
 target_link_libraries(RollerCoasterGL glad glfw glm::glm)

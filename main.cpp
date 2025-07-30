@@ -8,15 +8,14 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include "Terrain.hpp"
-#include "Array_2D.hpp"
+#include "AppContext.hpp"
 #include "FreeFlyCam.hpp"
-#include "SimplexNoise.hpp"
 
 constexpr int WIN_WIDTH = 1280;
 constexpr int WIN_HEIGHT = 720;
 
-constexpr int MAP_WIDTH = 128;
-constexpr int MAP_HEIGHT = 128;
+constexpr int MAP_WIDTH = 256;
+constexpr int MAP_HEIGHT = 256;
 constexpr unsigned SEED = 428432;
 constexpr float SCALE = 0.1f;
 constexpr float OFFSET = 131.0f;
@@ -77,12 +76,34 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
 }
 
-bool keys[1024] = {false};
-
-void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-    if (key >= 0 && key < 1024) {
-        keys[key] = (action == GLFW_PRESS);
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    auto* ctx = static_cast<AppContext*>(glfwGetWindowUserPointer(window));
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, GLFW_TRUE);
+    if (ctx && key >= 0 && key < 1024) {
+        ctx -> keys[key] = (action != GLFW_RELEASE);
     }
+}
+
+void mouseCallback(GLFWwindow* window, double xpos, double ypos)
+{
+    static float lastX = WIN_WIDTH / 2.0f;
+    static float lastY = WIN_HEIGHT / 2.0f;
+    static bool firstMouse = true;
+    if (firstMouse)
+    {
+        lastX = static_cast<float>(xpos);
+        lastY = static_cast<float>(ypos);
+        firstMouse = false;
+    }
+    auto xoffset = static_cast<float>(xpos - lastX);
+    auto yoffset = static_cast<float>(lastY - ypos);
+    lastX = static_cast<float>(xpos);
+    lastY = static_cast<float>(ypos);
+
+    if (auto* ctx = static_cast<AppContext*>(glfwGetWindowUserPointer(window))) ctx->camera.processMouse(
+        xoffset, yoffset);
 }
 
 int main()
@@ -125,17 +146,18 @@ int main()
 
     glm::mat4 model = glm::mat4(1.0f);
 
-    glm::vec3 center(MAP_WIDTH / 2.0f, 0.0f, MAP_HEIGHT / 2.0f);
-    glm::vec3 eye(MAP_WIDTH / 2.0f, 120.0f, MAP_HEIGHT + 70.0f);
-
     glm::mat4 projection = glm::perspective(
         glm::radians(45.0f),
-        (float)WIN_WIDTH / (float)WIN_HEIGHT,
+        static_cast<float>(WIN_WIDTH) / static_cast<float>(WIN_HEIGHT),
         0.1f,
         1000.0f
     );
 
-    Array_2D<float> terrainArray(MAP_WIDTH, MAP_HEIGHT);
+    AppContext context;
+    glfwSetWindowUserPointer(window, &context);
+    glfwSetKeyCallback(window, keyCallback);
+    glfwSetCursorPosCallback(window, mouseCallback);
+
     Terrain terrain(MAP_WIDTH, MAP_HEIGHT, SEED);
     terrain.generate(SCALE, 0.01, 8, 2.0f, 0.5, 1.2, 50.0f);
     terrain.uploadToGPU();
@@ -143,31 +165,25 @@ int main()
     std::cout << "MaxHeight = " << terrain.maxH() << std::endl;
     std::cout << "MinHeight = " << terrain.minH() << std::endl;
 
-    glfwSetKeyCallback(window, keyCallback);
-    float xOffset = 0.0f, yOffset = 0.0f;
-
-    FreeFlyCam camera(glm::vec3(50.0f, 50.0f, 150.0f));
-
-    float deltaTime = 0.0f, lastFrame = 0.0f, currentFrame = 0.0f;
+    glEnable(GL_DEPTH_TEST);
 
     while (!glfwWindowShouldClose(window)) {
 
-        currentFrame = glfwGetTime();
-        deltaTime = currentFrame - lastFrame;
-        lastFrame = currentFrame;
+        context.currentFrame = glfwGetTime();
+        context.deltaTime = context.currentFrame - context.lastFrame;
+        context.lastFrame = context.currentFrame;
 
         // --- scena
         glClearColor(0.18f, 0.18f, 0.20f, 1.0f); // Szare tło
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
         glUseProgram(shaderProgram);
         glUniform1f(glGetUniformLocation(shaderProgram, "minH"), terrain.minH());
         glUniform1f(glGetUniformLocation(shaderProgram, "maxH"), terrain.maxH());
 
-        camera.processKeyboard(keys, deltaTime);
-        camera.processMouse(xOffset, yOffset);
-        glm::mat4 view = camera.getViewMatrix();
+        context.camera.processKeyboard(context.keys, context.deltaTime);
+        glm::mat4 view = context.camera.getViewMatrix();
 
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
