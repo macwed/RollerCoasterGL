@@ -9,6 +9,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include "Terrain.hpp"
 #include "Array_2D.hpp"
+#include "FreeFlyCam.hpp"
 #include "SimplexNoise.hpp"
 
 constexpr int WIN_WIDTH = 1280;
@@ -126,11 +127,6 @@ int main()
 
     glm::vec3 center(MAP_WIDTH / 2.0f, 0.0f, MAP_HEIGHT / 2.0f);
     glm::vec3 eye(MAP_WIDTH / 2.0f, 120.0f, MAP_HEIGHT + 70.0f);
-    glm::mat4 view = glm::lookAt(
-        eye,
-        center,
-        glm::vec3(0, 1, 0)
-    );
 
     glm::mat4 projection = glm::perspective(
         glm::radians(45.0f),
@@ -148,8 +144,18 @@ int main()
     std::cout << "MinHeight = " << terrain.minH() << std::endl;
 
     glfwSetKeyCallback(window, keyCallback);
+    float xOffset = 0.0f, yOffset = 0.0f;
+
+    FreeFlyCam camera(glm::vec3(50.0f, 50.0f, 150.0f));
+
+    float deltaTime = 0.0f, lastFrame = 0.0f, currentFrame = 0.0f;
 
     while (!glfwWindowShouldClose(window)) {
+
+        currentFrame = glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+
         // --- scena
         glClearColor(0.18f, 0.18f, 0.20f, 1.0f); // Szare tło
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -158,6 +164,10 @@ int main()
         glUseProgram(shaderProgram);
         glUniform1f(glGetUniformLocation(shaderProgram, "minH"), terrain.minH());
         glUniform1f(glGetUniformLocation(shaderProgram, "maxH"), terrain.maxH());
+
+        camera.processKeyboard(keys, deltaTime);
+        camera.processMouse(xOffset, yOffset);
+        glm::mat4 view = camera.getViewMatrix();
 
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));

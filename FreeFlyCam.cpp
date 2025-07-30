@@ -4,13 +4,27 @@
 
 #include "FreeFlyCam.hpp"
 
-#include <math.h>
+#include <cmath>
 #include <GLFW/glfw3.h>
 #include <glm/trigonometric.hpp>
-#include <glm/detail/func_trigonometric.inl>
+//#include <glm/detail/func_trigonometric.inl>
+#include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/quaternion_geometric.hpp>
 
-void FreeFlyCam::processKeyboard(bool *keys, float deltaTime) {
+FreeFlyCam::FreeFlyCam(glm::vec3 startPos)
+    : position(startPos),
+        front(0.0f, 0.0f, -1.0f),
+        up(0.0f, 1.0f, 0.0f),
+        yaw(-90.0f),
+        pitch(0.0f),
+        moveSpeed(10.0f),
+        mouseSensitivity(0.1f)
+{
+ updateVectors();
+}
+
+
+void FreeFlyCam::processKeyboard(const bool *keys, float deltaTime) {
     float velocity = moveSpeed * deltaTime;
 
     if (keys[GLFW_KEY_W])
@@ -42,6 +56,9 @@ void FreeFlyCam::processMouse(float xOffset, float yOffset) {
     updateVectors();
 }
 
+glm::mat4 FreeFlyCam::getViewMatrix() const {
+    return glm::lookAt(position, position + front, up);
+}
 
 void FreeFlyCam::updateVectors()
 {

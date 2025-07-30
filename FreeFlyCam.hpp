@@ -22,7 +22,7 @@ public:
 
     FreeFlyCam(glm::vec3 startPos);
 
-    void processKeyboard(bool* keys, float deltaTime);
+    void processKeyboard(const bool* keys, float deltaTime);
     void processMouse(float xOffset, float yOffset);
     glm::mat4 getViewMatrix() const;
 
