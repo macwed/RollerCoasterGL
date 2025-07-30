@@ -11,14 +11,23 @@
 #include "AppContext.hpp"
 #include "FreeFlyCam.hpp"
 
-constexpr int WIN_WIDTH = 1280;
-constexpr int WIN_HEIGHT = 720;
+ProjectConfig cfg {
+    .windowWidth = 1280,
+    .windowHeight = 1024,
+    .camPos = glm::vec3(50.0f, 50.0f, 150.0f),
 
-constexpr int MAP_WIDTH = 256;
-constexpr int MAP_HEIGHT = 256;
-constexpr unsigned SEED = 428432;
-constexpr float SCALE = 0.1f;
-constexpr float OFFSET = 131.0f;
+    .mapWidth = 1024,
+    .mapHeight = 1024,
+
+    .noiseSeed = 443221,
+    .noiseScale = 0.001f,
+    .noiseFreq = 0.05f,
+    .noiseOctaves = 8,
+    .noiseLacunarity = 2.0f,
+    .noisePersistence = 1.5f,
+    .noiseExponent = 1.2f,
+    .noiseHeightScale = 50.0f
+};
 
 std::string loadShaderSource(const std::string& filename) {
     std::ifstream file(filename);
@@ -88,8 +97,8 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
 void mouseCallback(GLFWwindow* window, double xpos, double ypos)
 {
-    static float lastX = WIN_WIDTH / 2.0f;
-    static float lastY = WIN_HEIGHT / 2.0f;
+    static float lastX = cfg.windowWidth / 2.0f;
+    static float lastY = cfg.windowHeight / 2.0f;
     static bool firstMouse = true;
     if (firstMouse)
     {
@@ -118,7 +127,8 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow* window = glfwCreateWindow(WIN_WIDTH, WIN_HEIGHT, "Rollercoaster - Terrain", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(cfg.windowWidth, cfg.windowHeight, "Rollercoaster - Terrain", nullptr,
+                                          nullptr);
     if (!window) {
         std::cerr << "Failed to create window GLFW!" << std::endl;
         glfwTerminate();
@@ -135,7 +145,7 @@ int main()
 
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
-    glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT);
+    glViewport(0, 0, cfg.windowWidth, cfg.windowHeight);
 
     std::string vertexSource = loadShaderSource("shaders/terrain.vert");
     std::cout << "Vert: " << vertexSource << std::endl;
@@ -148,24 +158,25 @@ int main()
 
     glm::mat4 projection = glm::perspective(
         glm::radians(45.0f),
-        static_cast<float>(WIN_WIDTH) / static_cast<float>(WIN_HEIGHT),
+        static_cast<float>(cfg.windowWidth) / static_cast<float>(cfg.windowHeight),
         0.1f,
         1000.0f
     );
 
-    AppContext context;
+    AppContext context(cfg);
     glfwSetWindowUserPointer(window, &context);
     glfwSetKeyCallback(window, keyCallback);
     glfwSetCursorPosCallback(window, mouseCallback);
 
-    Terrain terrain(MAP_WIDTH, MAP_HEIGHT, SEED);
-    terrain.generate(SCALE, 0.01, 8, 2.0f, 0.5, 1.2, 50.0f);
-    terrain.uploadToGPU();
+    context.terrain.generate(cfg.noiseScale, cfg.noiseFreq, cfg.noiseOctaves, cfg.noiseLacunarity, cfg.noisePersistence,
+                             cfg.noiseExponent, cfg.noiseHeightScale);
+    context.terrain.uploadToGPU();
 
-    std::cout << "MaxHeight = " << terrain.maxH() << std::endl;
-    std::cout << "MinHeight = " << terrain.minH() << std::endl;
+    std::cout << "MaxHeight = " << context.terrain.maxH() << std::endl;
+    std::cout << "MinHeight = " << context.terrain.minH() << std::endl;
 
     glEnable(GL_DEPTH_TEST);
+    bool drawLine = false;
 
     while (!glfwWindowShouldClose(window)) {
 
@@ -176,11 +187,13 @@ int main()
         // --- scena
         glClearColor(0.18f, 0.18f, 0.20f, 1.0f); // Szare tło
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+        drawLine = (drawLine != context.keys[GLFW_KEY_F1]);
+        glPolygonMode(GL_FRONT_AND_BACK, drawLine ? GL_LINE : GL_FILL);
 
         glUseProgram(shaderProgram);
-        glUniform1f(glGetUniformLocation(shaderProgram, "minH"), terrain.minH());
-        glUniform1f(glGetUniformLocation(shaderProgram, "maxH"), terrain.maxH());
+        glUniform1f(glGetUniformLocation(shaderProgram, "minH"), context.terrain.minH());
+        glUniform1f(glGetUniformLocation(shaderProgram, "maxH"), context.terrain.maxH());
 
         context.camera.processKeyboard(context.keys, context.deltaTime);
         glm::mat4 view = context.camera.getViewMatrix();
@@ -189,13 +202,14 @@ int main()
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
-        terrain.draw();
+        context.terrain.draw();
 
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
     // Sprzątanie
+    context.terrain.releaseGL();
     glDeleteProgram(shaderProgram);
     glfwDestroyWindow(window);
     glfwTerminate();
