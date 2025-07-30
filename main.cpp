@@ -16,10 +16,10 @@ ProjectConfig cfg {
     .windowHeight = 1024,
     .camPos = glm::vec3(50.0f, 50.0f, 150.0f),
 
-    .mapWidth = 1024,
-    .mapHeight = 1024,
+    .mapWidth = 512,
+    .mapHeight = 512,
 
-    .noiseSeed = 443221,
+    .noiseSeed = 4245221,
     .noiseScale = 0.001f,
     .noiseFreq = 0.05f,
     .noiseOctaves = 8,
@@ -176,7 +176,6 @@ int main()
     std::cout << "MinHeight = " << context.terrain.minH() << std::endl;
 
     glEnable(GL_DEPTH_TEST);
-    bool drawLine = false;
 
     while (!glfwWindowShouldClose(window)) {
 
@@ -184,12 +183,25 @@ int main()
         context.deltaTime = context.currentFrame - context.lastFrame;
         context.lastFrame = context.currentFrame;
 
+        static bool prevF1 = false;
+        static bool prevF2 = false;
+        bool f1 = context.keys[GLFW_KEY_F1];
+        bool f2 = context.keys[GLFW_KEY_F2];
+
+        if (f1 && !prevF1)
+            context.polygonMode = GL_LINE;
+        if (f2 && !prevF2)
+            context.polygonMode = GL_FILL;
+
+        prevF1 = f1;
+        prevF2 = f2;
+
         // --- scena
         glClearColor(0.18f, 0.18f, 0.20f, 1.0f); // Szare tło
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        drawLine = (drawLine != context.keys[GLFW_KEY_F1]);
-        glPolygonMode(GL_FRONT_AND_BACK, drawLine ? GL_LINE : GL_FILL);
+
+        glPolygonMode(GL_FRONT_AND_BACK, context.polygonMode);
 
         glUseProgram(shaderProgram);
         glUniform1f(glGetUniformLocation(shaderProgram, "minH"), context.terrain.minH());
