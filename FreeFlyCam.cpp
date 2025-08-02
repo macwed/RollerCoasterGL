@@ -38,9 +38,9 @@ void FreeFlyCam::processKeyboard(const bool *keys, float deltaTime) {
     if (keys[GLFW_KEY_D])
         position += right * velocity;
     if (keys[GLFW_KEY_SPACE])
-        position += up * velocity;
+        position += glm::vec3(0.0f, 1.0f, 0.0f) * velocity;
     if (keys[GLFW_KEY_LEFT_SHIFT])
-        position -= up * velocity;
+        position -= glm::vec3(0.0f, 1.0f, 0.0f) * velocity;
 }
 
 void FreeFlyCam::processMouse(float xOffset, float yOffset) {
@@ -67,9 +67,10 @@ void FreeFlyCam::updateVectors()
     glm::vec3 newFront;
     newFront.x = static_cast<float>(cos(glm::radians(yaw)) * cos(glm::radians(pitch)));
     newFront.y = static_cast<float>(sin(glm::radians(pitch)));
-    newFront.z = static_cast<float>(sin(glm::radians(yaw) * cos(glm::radians(pitch))));
+    newFront.z = static_cast<float>(sin(glm::radians(yaw)) * cos(glm::radians(pitch)));
+    this->front = glm::normalize(newFront);
 
     front = glm::normalize(newFront);
-    right = glm::normalize(glm::cross(front, glm::vec3(0.0f, 1.0f, 0.0f)));
-    up = glm::normalize(glm::cross(right, front));
+    right = glm::normalize(glm::cross(this->front, glm::vec3(0.0f, 1.0f, 0.0f)));
+    up = glm::vec3(0, 1, 0);
 }
