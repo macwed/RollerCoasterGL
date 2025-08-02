@@ -36,6 +36,8 @@ struct AppContext
     int polygonMode = GL_FILL;
     bool cursorLocked = true;
 
+    bool showTerrainPanel = false;
+
     explicit AppContext(const ProjectConfig& cfg) :
         camera(cfg.camPos),
         terrain(cfg.mapWidth, cfg.mapHeight, cfg.noiseSeed)

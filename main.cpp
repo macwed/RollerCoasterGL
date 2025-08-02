@@ -218,34 +218,39 @@ int main()
         if (p && !prevP && context.cursorLocked) {
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
             context.cursorLocked = false;
+            context.showTerrainPanel = true;
         }
         if (f && !prevF && !context.cursorLocked) {
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
             context.cursorLocked = true;
+            context.showTerrainPanel = false;
         }
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::Begin("Panel terenu");
-        ImGui::Text("Parametry szumu i terenu");
-        ImGui::SliderFloat("Height", &cfg.noiseHeightScale, 1.0f, 200.0f);
-        ImGui::SliderFloat("Scale", &cfg.noiseScale, 0.0001f, 0.1f, "%.4f");
-        ImGui::SliderInt("Octaves", &cfg.noiseOctaves, 1, 12);
-        ImGui::SliderFloat("Lacunarity", &cfg.noiseLacunarity, 1.0f, 4.0f);
-        ImGui::SliderFloat("Persistence", &cfg.noisePersistence, 0.1f, 2.0f);
-        ImGui::InputInt("Seed", &cfg.noiseSeed);
-        if (ImGui::Button("Generate Terrain"))
+        if (context.showTerrainPanel)
         {
-            context.terrain.releaseGL();
-            context.terrain = Terrain(cfg.mapWidth, cfg.mapHeight, cfg.noiseSeed);
-            context.terrain.generate(cfg.noiseScale, cfg.noiseFreq, cfg.noiseOctaves, cfg.noiseLacunarity,
-                                     cfg.noisePersistence, cfg.noiseExponent, cfg.noiseHeightScale);
-            context.terrain.uploadToGPU();
-        }
+            ImGui::Begin("Panel terenu", &context.showTerrainPanel);
+            ImGui::Text("Parametry szumu i terenu");
+            ImGui::SliderFloat("Height", &cfg.noiseHeightScale, 1.0f, 200.0f);
+            ImGui::SliderFloat("Scale", &cfg.noiseScale, 0.0001f, 0.1f, "%.4f");
+            ImGui::SliderInt("Octaves", &cfg.noiseOctaves, 1, 12);
+            ImGui::SliderFloat("Lacunarity", &cfg.noiseLacunarity, 1.0f, 4.0f);
+            ImGui::SliderFloat("Persistence", &cfg.noisePersistence, 0.1f, 2.0f);
+            ImGui::InputInt("Seed", &cfg.noiseSeed);
+            if (ImGui::Button("Generate Terrain"))
+            {
+                context.terrain.releaseGL();
+                context.terrain = Terrain(cfg.mapWidth, cfg.mapHeight, cfg.noiseSeed);
+                context.terrain.generate(cfg.noiseScale, cfg.noiseFreq, cfg.noiseOctaves, cfg.noiseLacunarity,
+                                         cfg.noisePersistence, cfg.noiseExponent, cfg.noiseHeightScale);
+                context.terrain.uploadToGPU();
+            }
 
-        ImGui::End();
+            ImGui::End();
+        }
 
         // --- scena
         glClearColor(0.18f, 0.18f, 0.20f, 1.0f); // Szare tło
