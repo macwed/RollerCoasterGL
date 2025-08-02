@@ -10,6 +10,14 @@ endif()
 
 add_library(glad STATIC thirdparty/glad/glad.c)
 target_include_directories(glad PUBLIC thirdparty/glad)
+add_library(imgui STATIC thirdparty/imgui/imgui.cpp
+        thirdparty/imgui/imgui_draw.cpp
+        thirdparty/imgui/imgui_widgets.cpp
+        thirdparty/imgui/imgui_tables.cpp
+        thirdparty/imgui/imgui_demo.cpp
+        thirdparty/imgui/backends/imgui_impl_glfw.cpp
+        thirdparty/imgui/backends/imgui_impl_opengl3.cpp)
+target_include_directories(imgui PUBLIC thirdparty/imgui)
 
 find_package(glfw3 CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
@@ -20,5 +28,5 @@ add_executable(RollerCoasterGL main.cpp
         FreeFlyCam.cpp
 )
 
-target_link_libraries(RollerCoasterGL glad glfw glm::glm)
-target_include_directories(RollerCoasterGL PRIVATE thirdparty/glad)
+target_link_libraries(RollerCoasterGL glad glfw glm::glm imgui)
+target_include_directories(RollerCoasterGL PRIVATE thirdparty/glad thirdparty/imgui thirdparty/imgui/backends)
