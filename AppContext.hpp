@@ -34,6 +34,7 @@ struct AppContext
     bool keys[1024]{false};
     float lastFrame = 0.0f, currentFrame = 0.0f, deltaTime = 0.0f;
     int polygonMode = GL_FILL;
+    bool cursorLocked = true;
 
     explicit AppContext(const ProjectConfig& cfg) :
         camera(cfg.camPos),

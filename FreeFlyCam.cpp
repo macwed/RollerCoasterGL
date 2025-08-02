@@ -18,7 +18,7 @@ FreeFlyCam::FreeFlyCam(glm::vec3 startPos)
         right(0.0f, 0.0f, 0.0f),
         yaw(-90.0f),
         pitch(0.0f),
-        moveSpeed(10.0f),
+        moveSpeed(15.0f),
         mouseSensitivity(0.1f)
 {
  updateVectors();
@@ -28,6 +28,7 @@ FreeFlyCam::FreeFlyCam(glm::vec3 startPos)
 void FreeFlyCam::processKeyboard(const bool *keys, float deltaTime) {
     float velocity = moveSpeed * deltaTime;
 
+    moveSpeed = (keys[GLFW_KEY_LEFT_CONTROL] ? 60.0f : 15.0f);
     if (keys[GLFW_KEY_W])
         position += front * velocity;
     if (keys[GLFW_KEY_S])

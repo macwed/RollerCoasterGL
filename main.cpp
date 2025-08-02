@@ -97,6 +97,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
 void mouseCallback(GLFWwindow* window, double xpos, double ypos)
 {
+    auto* ctx = static_cast<AppContext*>(glfwGetWindowUserPointer(window));
     static float lastX = cfg.windowWidth / 2.0f;
     static float lastY = cfg.windowHeight / 2.0f;
     static bool firstMouse = true;
@@ -110,9 +111,10 @@ void mouseCallback(GLFWwindow* window, double xpos, double ypos)
     auto yoffset = static_cast<float>(lastY - ypos);
     lastX = static_cast<float>(xpos);
     lastY = static_cast<float>(ypos);
-
-    if (auto* ctx = static_cast<AppContext*>(glfwGetWindowUserPointer(window))) ctx->camera.processMouse(
-        xoffset, yoffset);
+    if (!ctx -> cursorLocked) {
+        return;
+    }
+    if (ctx) ctx->camera.processMouse(xoffset, yoffset);
 }
 
 int main()
@@ -135,6 +137,8 @@ int main()
         return -1;
     }
     glfwMakeContextCurrent(window);
+
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress))) {
         std::cerr << "Failed to initialize GLAD!" << std::endl;
@@ -183,8 +187,7 @@ int main()
         context.deltaTime = context.currentFrame - context.lastFrame;
         context.lastFrame = context.currentFrame;
 
-        static bool prevF1 = false;
-        static bool prevF2 = false;
+        static bool prevF1 = false, prevF2 = false;
         bool f1 = context.keys[GLFW_KEY_F1];
         bool f2 = context.keys[GLFW_KEY_F2];
 
@@ -195,6 +198,19 @@ int main()
 
         prevF1 = f1;
         prevF2 = f2;
+
+        static bool prevP = false, prevF = false;
+        bool p = context.keys[GLFW_KEY_P];
+        bool f = context.keys[GLFW_KEY_F];
+        if (p && !prevP && context.cursorLocked) {
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            context.cursorLocked = false;
+        }
+        if (f && !prevF && !context.cursorLocked) {
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            context.cursorLocked = true;
+        }
+
 
         // --- scena
         glClearColor(0.18f, 0.18f, 0.20f, 1.0f); // Szare tło
