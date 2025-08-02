@@ -13,7 +13,7 @@
 constexpr float F2 = 0.36602540378f; // (sqrt(3)-1)/2
 constexpr float G2 = 0.2113248654f;  // (3-sqrt(3))/6
 
-SimplexNoise::SimplexNoise(unsigned seed) : seed_(seed) {
+SimplexNoise::SimplexNoise(int seed) : seed_(seed) {
     init_perm_();
     init_gradient_table_();
 }

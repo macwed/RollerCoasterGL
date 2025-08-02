@@ -12,7 +12,7 @@
 
 
 
-Terrain::Terrain(int width, int height, unsigned seed)
+Terrain::Terrain(int width, int height, int seed)
     : width_(width), height_(height), heightmap_(width, height), noise_(seed), vbo_(0), vao_(0), ibo_(0) {}
 void Terrain::releaseGL() {
     if (vbo_) {glDeleteBuffers(1, &vbo_); vbo_ = 0;}

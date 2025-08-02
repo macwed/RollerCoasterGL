@@ -10,21 +10,24 @@
 #include "Terrain.hpp"
 #include "AppContext.hpp"
 #include "FreeFlyCam.hpp"
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
 
 ProjectConfig cfg {
-    .windowWidth = 1280,
-    .windowHeight = 1024,
+    .windowWidth = 1920,
+    .windowHeight = 1280,
     .camPos = glm::vec3(50.0f, 50.0f, 150.0f),
 
-    .mapWidth = 512,
-    .mapHeight = 512,
+    .mapWidth = 1024,
+    .mapHeight = 1024,
 
     .noiseSeed = 4245221,
     .noiseScale = 0.001f,
-    .noiseFreq = 0.05f,
+    .noiseFreq = 0.02f,
     .noiseOctaves = 8,
-    .noiseLacunarity = 2.0f,
-    .noisePersistence = 1.5f,
+    .noiseLacunarity = 1.9f,
+    .noisePersistence = 1.0f,
     .noiseExponent = 1.2f,
     .noiseHeightScale = 50.0f
 };
@@ -98,8 +101,8 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 void mouseCallback(GLFWwindow* window, double xpos, double ypos)
 {
     auto* ctx = static_cast<AppContext*>(glfwGetWindowUserPointer(window));
-    static float lastX = cfg.windowWidth / 2.0f;
-    static float lastY = cfg.windowHeight / 2.0f;
+    static float lastX = static_cast<float>(cfg.windowWidth) / 2.0f;
+    static float lastY = static_cast<float>(cfg.windowHeight) / 2.0f;
     static bool firstMouse = true;
     if (firstMouse)
     {
@@ -114,7 +117,9 @@ void mouseCallback(GLFWwindow* window, double xpos, double ypos)
     if (!ctx -> cursorLocked) {
         return;
     }
-    if (ctx) ctx->camera.processMouse(xoffset, yoffset);
+    ImGuiIO& io = ImGui::GetIO();
+    if (!io.WantCaptureMouse && ctx->cursorLocked)
+        ctx->camera.processMouse(xoffset, yoffset);
 }
 
 int main()
@@ -179,11 +184,19 @@ int main()
     std::cout << "MaxHeight = " << context.terrain.maxH() << std::endl;
     std::cout << "MinHeight = " << context.terrain.minH() << std::endl;
 
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::StyleColorsDark();
+
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 330 core");
+
     glEnable(GL_DEPTH_TEST);
 
     while (!glfwWindowShouldClose(window)) {
 
-        context.currentFrame = glfwGetTime();
+        context.currentFrame = static_cast<float>(glfwGetTime());
         context.deltaTime = context.currentFrame - context.lastFrame;
         context.lastFrame = context.currentFrame;
 
@@ -211,6 +224,28 @@ int main()
             context.cursorLocked = true;
         }
 
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        ImGui::Begin("Panel terenu");
+        ImGui::Text("Parametry szumu i terenu");
+        ImGui::SliderFloat("Height", &cfg.noiseHeightScale, 1.0f, 200.0f);
+        ImGui::SliderFloat("Scale", &cfg.noiseScale, 0.0001f, 0.1f, "%.4f");
+        ImGui::SliderInt("Octaves", &cfg.noiseOctaves, 1, 12);
+        ImGui::SliderFloat("Lacunarity", &cfg.noiseLacunarity, 1.0f, 4.0f);
+        ImGui::SliderFloat("Persistence", &cfg.noisePersistence, 0.1f, 2.0f);
+        ImGui::InputInt("Seed", &cfg.noiseSeed);
+        if (ImGui::Button("Generate Terrain"))
+        {
+            context.terrain.releaseGL();
+            context.terrain = Terrain(cfg.mapWidth, cfg.mapHeight, cfg.noiseSeed);
+            context.terrain.generate(cfg.noiseScale, cfg.noiseFreq, cfg.noiseOctaves, cfg.noiseLacunarity,
+                                     cfg.noisePersistence, cfg.noiseExponent, cfg.noiseHeightScale);
+            context.terrain.uploadToGPU();
+        }
+
+        ImGui::End();
 
         // --- scena
         glClearColor(0.18f, 0.18f, 0.20f, 1.0f); // Szare tło
@@ -223,7 +258,8 @@ int main()
         glUniform1f(glGetUniformLocation(shaderProgram, "minH"), context.terrain.minH());
         glUniform1f(glGetUniformLocation(shaderProgram, "maxH"), context.terrain.maxH());
 
-        context.camera.processKeyboard(context.keys, context.deltaTime);
+        if (!io.WantCaptureKeyboard)
+            context.camera.processKeyboard(context.keys, context.deltaTime);
         glm::mat4 view = context.camera.getViewMatrix();
 
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
@@ -232,12 +268,18 @@ int main()
 
         context.terrain.draw();
 
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
     // Sprzątanie
     context.terrain.releaseGL();
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
     glDeleteProgram(shaderProgram);
     glfwDestroyWindow(window);
     glfwTerminate();

@@ -14,11 +14,11 @@ struct ProjectConfig
 
     glm::vec3 camPos;
     int mapWidth, mapHeight;
-    unsigned noiseSeed;
+    int noiseSeed;
 
     float noiseScale;
     float noiseFreq;
-    float noiseOctaves;
+    int noiseOctaves;
     float noiseLacunarity;
     float noisePersistence;
     float noiseExponent;

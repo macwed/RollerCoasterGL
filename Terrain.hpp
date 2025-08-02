@@ -13,7 +13,7 @@
 
 class Terrain {
     public:
-        Terrain(int width, int height, unsigned seed);
+        Terrain(int width, int height, int seed);
         void releaseGL();
 
         void generate(float scale, float frequency = 0.01f, int octaves = 8, float lacunarity = 2.0f,

@@ -9,7 +9,7 @@
 
 class SimplexNoise {
 public:
-    explicit SimplexNoise(unsigned seed);
+    explicit SimplexNoise(int seed);
 
     // core API
     [[nodiscard]] float noise(float x, float y) const;
@@ -17,7 +17,7 @@ public:
     [[nodiscard]] float fbm(float x, float y, float frequency = 1.5f, int octaves = 8, float lacunarity = 2.0f, float persistence = 0.5f) const;
 
 private:
-    unsigned seed_;
+    int seed_;
     std::vector<int> perm_;
     std::vector<glm::vec2> gradient_table_;
 
