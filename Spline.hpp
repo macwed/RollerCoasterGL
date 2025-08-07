@@ -12,6 +12,7 @@
 class Spline {
 public:
     void addPoint(const glm::vec3& point);
+    glm::vec3 getPosition(std::size_t segmentIndex, float t) const;
 
 private:
     std::vector<glm::vec3> points_;
