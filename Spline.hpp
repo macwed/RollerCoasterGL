@@ -4,6 +4,7 @@
 
 #ifndef SPLINE_HPP
 #define SPLINE_HPP
+#include <utility>
 #include <vector>
 #include <glm/vec3.hpp>
 
@@ -35,13 +36,23 @@ public:
     void removeNode(std::size_t i);
 
     std::size_t segmentCount() const;
+    void rebuildArcLengthLUT(std::size_t minSamplesPerSegment = 64);
+    float totalLength() const noexcept { return totalLength_; }
 
     glm::vec3 getPosition(std::size_t segmentIndex, float t) const;
     glm::vec3 getTangent(std::size_t segmentIndex, float t) const;
 
+    glm::vec3 getPositionAtS(float s) const;
+    glm::vec3 getTangentAtS(float s) const;
+
 private:
     std::vector<Node> nodes_;
+    std::vector<SegmentLUT> lut_; //jeden LUT na segment
+    std::vector<float> segPrefix_;
     bool closed = false;
+    float totalLength_ = 0.f;
+
+    std::pair<std::size_t, float> locateSegmentByS(float s) const;
 };
 
 

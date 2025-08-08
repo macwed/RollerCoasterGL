@@ -107,5 +107,44 @@ glm::vec3 Spline::getTangent(std::size_t segmentIndex, float t) const
         return wide / wideLen;
     }
 
-    return glm::vec3(1.0f, 0.0f, 0.0f);
+    return {1.0f, 0.0f, 0.0f};
+}
+
+void Spline::rebuildArcLengthLUT(std::size_t minSamplesPerSegment)
+{
+    if (segmentCount() == 0)
+    {
+        lut_.clear();
+        segPrefix_.clear();
+        totalLength_ = 0.f;
+        return;
+    }
+
+    if (minSamplesPerSegment < 2) minSamplesPerSegment = 2;
+    lut_.clear();
+    lut_.reserve(segmentCount());
+    segPrefix_.assign(segmentCount(), 0.f);
+    for (std::size_t seg = 0; seg < segmentCount(); ++seg)
+    {
+        SegmentLUT segLUT;
+        segLUT.samples.resize(minSamplesPerSegment + 1);
+        glm::vec3 currentPos = getPosition(seg, 0);
+        float s = 0.f;
+        segLUT.samples[0] = {0.f, 0.f, currentPos};
+        for (std::size_t i = 1; i <= minSamplesPerSegment; ++i)
+        {
+            float u = static_cast<float>(i) / static_cast<float>(minSamplesPerSegment);
+            glm::vec3 pos = getPosition(seg, u);
+            s += glm::length(pos - segLUT.samples[i - 1].pos);
+            segLUT.samples[i] = {u, s, pos};
+        }
+        segLUT.length = s;
+        lut_.push_back(std::move(segLUT));
+    }
+
+    for (std::size_t i = 1; i < segPrefix_.size(); ++i)
+    {
+        segPrefix_[i] = segPrefix_[i - 1] + lut_[i - 1].length;
+    }
+    totalLength_ = segPrefix_.back() + lut_.back().length;
 }
