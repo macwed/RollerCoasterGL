@@ -14,6 +14,19 @@ struct Node {
     float continuity = 0.f;
 };
 
+struct ArcSample
+{
+    float u; //lokalny parametr z zakresu [0,1] dla łuku
+    float s; //odległość od początku TEGO segmnetu toru do u
+    glm::vec3 pos; //pozycja C(u)
+};
+
+struct SegmentLUT
+{
+    std::vector<ArcSample> samples;
+    float length = 0.f; //całkowita długość segmentu
+};
+
 class Spline {
 public:
     void addNode(const Node& node);
