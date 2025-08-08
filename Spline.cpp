@@ -112,7 +112,8 @@ glm::vec3 Spline::getTangent(std::size_t segmentIndex, float t) const
 
 void Spline::rebuildArcLengthLUT(std::size_t minSamplesPerSegment)
 {
-    if (segmentCount() == 0)
+    const auto segCount = segmentCount();
+    if (segCount == 0)
     {
         lut_.clear();
         segPrefix_.clear();
@@ -122,9 +123,10 @@ void Spline::rebuildArcLengthLUT(std::size_t minSamplesPerSegment)
 
     if (minSamplesPerSegment < 2) minSamplesPerSegment = 2;
     lut_.clear();
-    lut_.reserve(segmentCount());
-    segPrefix_.assign(segmentCount(), 0.f);
-    for (std::size_t seg = 0; seg < segmentCount(); ++seg)
+    lut_.reserve(segCount);
+    segPrefix_.assign(segCount, 0.f);
+    constexpr float epsilon = 10e-6f;
+    for (std::size_t seg = 0; seg < segCount; ++seg)
     {
         SegmentLUT segLUT;
         segLUT.samples.resize(minSamplesPerSegment + 1);
@@ -135,7 +137,9 @@ void Spline::rebuildArcLengthLUT(std::size_t minSamplesPerSegment)
         {
             float u = static_cast<float>(i) / static_cast<float>(minSamplesPerSegment);
             glm::vec3 pos = getPosition(seg, u);
-            s += glm::length(pos - segLUT.samples[i - 1].pos);
+            float ds = glm::length(pos - segLUT.samples[i - 1].pos);
+            if (ds < epsilon) ds = 0.f;
+            s += ds;
             segLUT.samples[i] = {u, s, pos};
         }
         segLUT.length = s;
