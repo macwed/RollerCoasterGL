@@ -156,7 +156,8 @@ void Spline::rebuildArcLengthLUT(std::size_t minSamplesPerSegment)
 
 bool Spline::isClosed() const
 {
-    return segmentCount() > 0 && nodes_.front().pos == nodes_.back().pos;
+    if (segmentCount() == 0) return false;
+    return glm::length(nodes_.front().pos - nodes_.back().pos) < 10e-4;
 }
 
 std::pair<std::size_t, float> Spline::locateSegmentByS(float s) const
