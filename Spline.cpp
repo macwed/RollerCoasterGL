@@ -175,3 +175,28 @@ std::pair<std::size_t, float> Spline::locateSegmentByS(float s) const
 
     return std::make_pair(k, sLocal);
 }
+
+glm::vec3 Spline::getPositionAtS(float s) const
+{
+    auto locSeg = locateSegmentByS(s);
+    std::size_t k = locSeg.first;
+    float sLocal = locSeg.second;
+    auto u1 = std::lower_bound(lut_[k].samples.begin(), lut_[k].samples.end(), sLocal);
+    auto u0 = u1;
+    if (u1 != lut_[k].samples.begin()) u0 -= 1;
+
+    float alpha;
+    float epsilon = 10e-6f;
+    if (u1->s - u0->s >= epsilon)
+    {
+        alpha = (sLocal - u0->s) / (u1->s - u0->s);
+    } else
+    {
+        alpha = (sLocal - u0->s) / epsilon;
+    }
+    float u = u0->u + alpha * (u1->u - u0->u);
+    glm::vec3 pos = u0->pos + alpha * (u1->pos - u0->pos);
+
+    return getPosition(k, u);
+}
+
