@@ -19,7 +19,7 @@ struct ArcSample
 {
     float u; //lokalny parametr z zakresu [0,1] dla łuku
     float s; //odległość od początku TEGO segmnetu toru do u
-    glm::vec3 pos; //pozycja C(u)
+    glm::vec3 pos; //pozycja C(u);
 };
 
 struct SegmentLUT
@@ -35,24 +35,26 @@ public:
     void moveNode(std::size_t i, const glm::vec3& newPos);
     void removeNode(std::size_t i);
 
-    std::size_t segmentCount() const;
+    [[nodiscard]] std::size_t segmentCount() const;
     void rebuildArcLengthLUT(std::size_t minSamplesPerSegment = 64);
-    float totalLength() const noexcept { return totalLength_; }
+    [[nodiscard]] float totalLength() const noexcept { return totalLength_; }
 
-    glm::vec3 getPosition(std::size_t segmentIndex, float t) const;
-    glm::vec3 getTangent(std::size_t segmentIndex, float t) const;
+    [[nodiscard]] glm::vec3 getPosition(std::size_t segmentIndex, float t) const;
+    [[nodiscard]] glm::vec3 getTangent(std::size_t segmentIndex, float t) const;
 
     glm::vec3 getPositionAtS(float s) const;
     glm::vec3 getTangentAtS(float s) const;
+
+    bool isClosed() const;
 
 private:
     std::vector<Node> nodes_;
     std::vector<SegmentLUT> lut_; //jeden LUT na segment
     std::vector<float> segPrefix_;
-    bool closed = false;
+    //bool closed_ = false;
     float totalLength_ = 0.f;
 
-    std::pair<std::size_t, float> locateSegmentByS(float s) const;
+    [[nodiscard]] std::pair<std::size_t, float> locateSegmentByS(float s) const;
 };
 
 

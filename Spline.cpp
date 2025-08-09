@@ -130,17 +130,18 @@ void Spline::rebuildArcLengthLUT(std::size_t minSamplesPerSegment)
     {
         SegmentLUT segLUT;
         segLUT.samples.resize(minSamplesPerSegment + 1);
-        glm::vec3 currentPos = getPosition(seg, 0);
+        glm::vec3 prevPos = getPosition(seg, 0);
         float s = 0.f;
-        segLUT.samples[0] = {0.f, 0.f, currentPos};
+        segLUT.samples[0] = {0.f, 0.f, prevPos};
         for (std::size_t i = 1; i <= minSamplesPerSegment; ++i)
         {
             float u = static_cast<float>(i) / static_cast<float>(minSamplesPerSegment);
             glm::vec3 pos = getPosition(seg, u);
-            float ds = glm::length(pos - segLUT.samples[i - 1].pos);
+            float ds = glm::length(pos - prevPos);
             if (ds < epsilon) ds = 0.f;
             s += ds;
             segLUT.samples[i] = {u, s, pos};
+            prevPos = pos;
         }
         segLUT.length = s;
         lut_.push_back(std::move(segLUT));
@@ -151,4 +152,26 @@ void Spline::rebuildArcLengthLUT(std::size_t minSamplesPerSegment)
         segPrefix_[i] = segPrefix_[i - 1] + lut_[i - 1].length;
     }
     totalLength_ = segPrefix_.back() + lut_.back().length;
+}
+
+bool Spline::isClosed() const
+{
+    return segmentCount() > 0 && nodes_.front().pos == nodes_.back().pos;
+}
+
+std::pair<std::size_t, float> Spline::locateSegmentByS(float s) const
+{
+    if (segmentCount() == 0) throw std::out_of_range("Spline::locateSegmentByS invalid segment index");
+    if (isClosed())
+    {
+        s = fmod(s, totalLength_);
+        if (s < 0.f) s += totalLength_;
+    } else
+    {
+        s = std::clamp(s, 0.f, totalLength_);
+    }
+    auto k = std::distance(segPrefix_.begin(),(std::ranges::upper_bound(segPrefix_, s)-1));
+    float sLocal = s - segPrefix_[k];
+
+    return std::make_pair(k, sLocal);
 }
