@@ -1,13 +1,14 @@
 //
 // Created by maciej on 07.08.25.
 //
+#include <algorithm>
+#include <cmath>
 #include <stdexcept>
 #include <vector>
 #include <glm/geometric.hpp>
 #include <glm/vec3.hpp>
 #include "Spline.hpp"
 
-#include <algorithm>
 
 void Spline::addNode(const Node& node)
 {
@@ -157,7 +158,7 @@ void Spline::rebuildArcLengthLUT(std::size_t minSamplesPerSegment)
 bool Spline::isClosed() const
 {
     if (segmentCount() == 0) return false;
-    return glm::length(nodes_.front().pos - nodes_.back().pos) < 10e-4;
+    return glm::length(nodes_.front().pos - nodes_.back().pos) < 1e-4f;
 }
 
 std::pair<std::size_t, float> Spline::locateSegmentByS(float s) const
@@ -166,7 +167,7 @@ std::pair<std::size_t, float> Spline::locateSegmentByS(float s) const
     if (totalLength_ <= 0) return std::make_pair(0, 0.f);
     if (isClosed())
     {
-        s = fmod(s, totalLength_);
+        s = std::fmod(s, totalLength_);
         if (s < 0.f) s += totalLength_;
     } else
     {
@@ -179,10 +180,10 @@ std::pair<std::size_t, float> Spline::locateSegmentByS(float s) const
     }
     if (it == segPrefix_.end()) //s == totalLength_
         {
-            std::size_t k = segPrefix_.size() - 1;
-            return std::make_pair(k, s - segPrefix_[k]);
+            std::size_t last = segPrefix_.size() - 1;
+            return std::make_pair(last, s - segPrefix_[last]); //gdy sLocal == length ostatniego segmentu
         }
-    std::size_t k = static_cast<std::size_t>(std::distance(segPrefix_.begin(), it));
+    std::size_t k = static_cast<std::size_t>(std::distance(segPrefix_.begin(), it) - 1); //bo upper_bound zwraca pierwszy elem większy od s
     float sLocal = s - segPrefix_[k];
     return std::make_pair(k, sLocal);
 }
@@ -190,32 +191,15 @@ std::pair<std::size_t, float> Spline::locateSegmentByS(float s) const
 glm::vec3 Spline::getPositionAtS(float s) const
 {
     auto [k, sLocal] = locateSegmentByS(s);
-    const auto& samples = lut_[k].samples;
+    const auto& seg = lut_[k];
 
+    if (sLocal <= 0.f) return getPosition(k, 0.f);
+    if (sLocal >= seg.length) return getPosition(k, 1.f);
+
+    const auto& samples = seg.samples;
     auto it1 = std::lower_bound(samples.begin(), samples.end(), sLocal,
                                 [](const ArcSample& a, float val) { return a.s < val; });
-    if (it1 == samples.end()) //sLocal na końcu segmentu
-    {
-        auto it0 = it1;
-        it1 -= 1;
-        it0 -= 2;
-        float denom = std::max(it1->s - it0->s, 1e-6f);
-        float alpha = (sLocal - it0->s) / denom;
-        alpha = std::clamp(alpha, 0.f, 1.f); //ok ~1
-        float u = it0->u + alpha * (it1->u - it0->u);  //ok ~1
 
-        return getPosition(k, u);
-    } else if (it1 == samples.begin())
-    {
-        auto it0 = it1;
-        ++it1;
-        float denom = std::max(it1->s - it0->s, 1e-6f);
-        float alpha = (sLocal - it0->s) / denom;
-        float u = it0->u + alpha * (it1->u - it0->u);
-
-        return getPosition(k, u);
-    } else
-    {
         auto it0 = std::prev(it1);
         float denom = std::max(it1->s - it0->s, 1e-6f);
         float alpha = (sLocal - it0->s) / denom;
@@ -223,5 +207,4 @@ glm::vec3 Spline::getPositionAtS(float s) const
         float u = it0->u + alpha * (it1->u - it0->u);
 
         return getPosition(k, u);
-    }
 }
