@@ -162,7 +162,8 @@ bool Spline::isClosed() const
 
 std::pair<std::size_t, float> Spline::locateSegmentByS(float s) const
 {
-    if (segmentCount() == 0) throw std::out_of_range("Spline::locateSegmentByS invalid segment index");
+    if (segmentCount() == 0) throw std::out_of_range("Spline::locateSegmentByS no segments");
+    if (totalLength_ <= 0) return std::make_pair(0, 0.f);
     if (isClosed())
     {
         s = fmod(s, totalLength_);
@@ -171,9 +172,18 @@ std::pair<std::size_t, float> Spline::locateSegmentByS(float s) const
     {
         s = std::clamp(s, 0.f, totalLength_);
     }
-    auto k = std::distance(segPrefix_.begin(),(std::ranges::upper_bound(segPrefix_, s)-1));
+    auto it = std::ranges::upper_bound(segPrefix_, s);
+    if (it == segPrefix_.begin()) //s == 0
+    {
+        return std::make_pair(0, s);
+    }
+    if (it == segPrefix_.end()) //s == totalLength_
+        {
+            std::size_t k = segPrefix_.size() - 1;
+            return std::make_pair(k, s - segPrefix_[k]);
+        }
+    std::size_t k = static_cast<std::size_t>(std::distance(segPrefix_.begin(), it));
     float sLocal = s - segPrefix_[k];
-
     return std::make_pair(k, sLocal);
 }
 
@@ -182,22 +192,26 @@ glm::vec3 Spline::getPositionAtS(float s) const
     auto locSeg = locateSegmentByS(s);
     std::size_t k = locSeg.first;
     float sLocal = locSeg.second;
-    auto u1 = std::lower_bound(lut_[k].samples.begin(), lut_[k].samples.end(), sLocal);
-    auto u0 = u1;
-    if (u1 != lut_[k].samples.begin()) u0 -= 1;
-
-    float alpha;
-    float epsilon = 10e-6f;
-    if (u1->s - u0->s >= epsilon)
+    auto it1 = std::lower_bound(lut_[k].samples.begin(), lut_[k].samples.end(), sLocal,
+                                [](const ArcSample& a, float val) { return a.s < val; });
+    auto it0 = it1;
+    if (it1 == lut_[k].samples.end())
     {
-        alpha = (sLocal - u0->s) / (u1->s - u0->s);
+        it1 -= 1;
+        it0 -= 2;
+    } else if (it1 == lut_[k].samples.begin())
+    {
+        it1 += 1;
     } else
     {
-        alpha = (sLocal - u0->s) / epsilon;
+        it0 -= 1;
     }
-    float u = u0->u + alpha * (u1->u - u0->u);
-    glm::vec3 pos = u0->pos + alpha * (u1->pos - u0->pos);
+
+
+    float denom = std::max(it1->s - it0->s, 1e-6f);
+    float alpha = (sLocal - it0->s) / denom;
+    alpha = std::clamp(alpha, 0.f, 1.f);
+    float u = it0->u + alpha * (it1->u - it0->u);
 
     return getPosition(k, u);
 }
-
