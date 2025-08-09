@@ -189,29 +189,39 @@ std::pair<std::size_t, float> Spline::locateSegmentByS(float s) const
 
 glm::vec3 Spline::getPositionAtS(float s) const
 {
-    auto locSeg = locateSegmentByS(s);
-    std::size_t k = locSeg.first;
-    float sLocal = locSeg.second;
-    auto it1 = std::lower_bound(lut_[k].samples.begin(), lut_[k].samples.end(), sLocal,
+    auto [k, sLocal] = locateSegmentByS(s);
+    const auto& samples = lut_[k].samples;
+
+    auto it1 = std::lower_bound(samples.begin(), samples.end(), sLocal,
                                 [](const ArcSample& a, float val) { return a.s < val; });
-    auto it0 = it1;
-    if (it1 == lut_[k].samples.end())
+    if (it1 == samples.end()) //sLocal na końcu segmentu
     {
+        auto it0 = it1;
         it1 -= 1;
         it0 -= 2;
-    } else if (it1 == lut_[k].samples.begin())
+        float denom = std::max(it1->s - it0->s, 1e-6f);
+        float alpha = (sLocal - it0->s) / denom;
+        alpha = std::clamp(alpha, 0.f, 1.f); //ok ~1
+        float u = it0->u + alpha * (it1->u - it0->u);  //ok ~1
+
+        return getPosition(k, u);
+    } else if (it1 == samples.begin())
     {
-        it1 += 1;
+        auto it0 = it1;
+        ++it1;
+        float denom = std::max(it1->s - it0->s, 1e-6f);
+        float alpha = (sLocal - it0->s) / denom;
+        float u = it0->u + alpha * (it1->u - it0->u);
+
+        return getPosition(k, u);
     } else
     {
-        it0 -= 1;
+        auto it0 = std::prev(it1);
+        float denom = std::max(it1->s - it0->s, 1e-6f);
+        float alpha = (sLocal - it0->s) / denom;
+        alpha = std::clamp(alpha, 0.f, 1.f);
+        float u = it0->u + alpha * (it1->u - it0->u);
+
+        return getPosition(k, u);
     }
-
-
-    float denom = std::max(it1->s - it0->s, 1e-6f);
-    float alpha = (sLocal - it0->s) / denom;
-    alpha = std::clamp(alpha, 0.f, 1.f);
-    float u = it0->u + alpha * (it1->u - it0->u);
-
-    return getPosition(k, u);
 }
