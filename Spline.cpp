@@ -220,7 +220,7 @@ glm::vec3 Spline::getPositionAtS(float s) const
         alpha = std::clamp(alpha, 0.f, 1.f);
         float uInit = it0->u + alpha * (it1->u - it0->u);
 
-        float uRefined = refineUByNewton(k, uInit, sLocal, 1);
+        float uRefined = refineUByNewton(k, uInit, sLocal, 2);
 
         return getPosition(k, uRefined);
 }
@@ -243,7 +243,7 @@ glm::vec3 Spline::getTangentAtS(float s) const
     alpha = std::clamp(alpha, 0.f, 1.f);
     float uInit = it0->u + alpha * (it1->u - it0->u);
 
-    float uRefined = refineUByNewton(k, uInit, sLocal, 1);
+    float uRefined = refineUByNewton(k, uInit, sLocal, 2);
 
     return getTangent(k, uRefined);
 }
@@ -260,12 +260,15 @@ float Spline::refineUByNewton(std::size_t segmentIndex, float u0, float sLocal, 
         //długość od 0 do u
         float sApprox = 0.f;
         const auto& samples = lut_[segmentIndex].samples;
-        auto it1 = std::lower_bound(samples.begin(), samples.end(), sLocal,
-                                    [](const ArcSample& a, float val) { return a.s < val; });
+        auto it1 = std::lower_bound(samples.begin(), samples.end(), u,
+                                    [](const ArcSample& a, float val) { return a.u < val; });
         if (it1 != samples.begin())
         {
             auto itPrev = std::prev(it1);
             sApprox = itPrev->s + glm::length(getPosition(segmentIndex, u) - itPrev->pos);
+        } else
+        {
+            sApprox = glm::length(getPosition(segmentIndex, u) - samples.front().pos);
         }
         float delta = sApprox - sLocal;
         u -= delta / speed;
