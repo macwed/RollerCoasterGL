@@ -197,7 +197,7 @@ std::pair<std::size_t, float> Spline::locateSegmentByS(float s) const
             std::size_t last = segPrefix_.size() - 1;
             return std::make_pair(last, s - segPrefix_[last]); //gdy sLocal == length ostatniego segmentu
         }
-    std::size_t k = static_cast<std::size_t>(std::distance(segPrefix_.begin(), it) - 1); //bo upper_bound zwraca pierwszy elem większy od s
+    auto k = static_cast<std::size_t>(std::distance(segPrefix_.begin(), it) - 1); //bo upper_bound zwraca pierwszy elem większy od s
     float sLocal = s - segPrefix_[k];
     return std::make_pair(k, sLocal);
 }
@@ -218,9 +218,11 @@ glm::vec3 Spline::getPositionAtS(float s) const
         float denom = std::max(it1->s - it0->s, 1e-6f);
         float alpha = (sLocal - it0->s) / denom;
         alpha = std::clamp(alpha, 0.f, 1.f);
-        float u = it0->u + alpha * (it1->u - it0->u);
+        float uInit = it0->u + alpha * (it1->u - it0->u);
 
-        return getPosition(k, u);
+        float uRefined = refineUByNewton(k, uInit, sLocal, 1);
+
+        return getPosition(k, uRefined);
 }
 
 glm::vec3 Spline::getTangentAtS(float s) const
@@ -239,7 +241,36 @@ glm::vec3 Spline::getTangentAtS(float s) const
     float denom = std::max(it1->s - it0->s, 1e-6f);
     float alpha = (sLocal - it0->s) / denom;
     alpha = std::clamp(alpha, 0.f, 1.f);
-    float u = it0->u + alpha * (it1->u - it0->u);
+    float uInit = it0->u + alpha * (it1->u - it0->u);
 
-    return getTangent(k, u);
+    float uRefined = refineUByNewton(k, uInit, sLocal, 1);
+
+    return getTangent(k, uRefined);
 }
+
+float Spline::refineUByNewton(std::size_t segmentIndex, float u0, float sLocal, int iterations) const
+{
+    float u = u0;
+    for (int iter = 0; iter < iterations; ++iter)
+    {
+        glm::vec3 deriv = getDerivative(segmentIndex, u);
+        float speed = glm::length(deriv);
+        if (speed < kEps) break;
+
+        //długość od 0 do u
+        float sApprox = 0.f;
+        const auto& samples = lut_[segmentIndex].samples;
+        auto it1 = std::lower_bound(samples.begin(), samples.end(), sLocal,
+                                    [](const ArcSample& a, float val) { return a.s < val; });
+        if (it1 != samples.begin())
+        {
+            auto itPrev = std::prev(it1);
+            sApprox = itPrev->s + glm::length(getPosition(segmentIndex, u) - itPrev->pos);
+        }
+        float delta = sApprox - sLocal;
+        u -= delta / speed;
+        u = std::clamp(u, 0.f, 1.f);
+    }
+    return u;
+}
+

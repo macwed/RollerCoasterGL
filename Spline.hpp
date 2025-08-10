@@ -44,10 +44,10 @@ public:
     [[nodiscard]] glm::vec3 getPosition(std::size_t segmentIndex, float t) const;
     [[nodiscard]] glm::vec3 getTangent(std::size_t segmentIndex, float t) const;
 
-    glm::vec3 getPositionAtS(float s) const;
-    glm::vec3 getTangentAtS(float s) const;
+    [[nodiscard]] glm::vec3 getPositionAtS(float s) const;
+    [[nodiscard]] glm::vec3 getTangentAtS(float s) const;
 
-    bool isClosed() const;
+    [[nodiscard]] bool isClosed() const;
 
 private:
     std::vector<Node> nodes_;
@@ -56,8 +56,9 @@ private:
     //bool closed_ = false;
     float totalLength_ = 0.f;
 
-    glm::vec3 getDerivative(std::size_t segmentIndex, float t) const;
+    [[nodiscard]] glm::vec3 getDerivative(std::size_t segmentIndex, float t) const;
     [[nodiscard]] std::pair<std::size_t, float> locateSegmentByS(float s) const;
+    float refineUByNewton(std::size_t segmentIndex, float u0, float sLocal, int iterations) const;
 };
 
 
