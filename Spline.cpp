@@ -68,11 +68,11 @@ glm::vec3 Spline::getPosition(std::size_t segmentIndex, float t) const
 
 glm::vec3 Spline::getDerivative(std::size_t segmentIndex, float t) const
 {
-    assert(segmentIndex < segmentCount());
     if (segmentCount() == 0)
     {
         throw std::out_of_range("Spline::getDerivative no segments");
     }
+    assert(segmentIndex < segmentCount());
 
     const glm::vec3& P0 = nodes_[segmentIndex + 0].pos;
     const glm::vec3& P1 = nodes_[segmentIndex + 1].pos;
@@ -92,22 +92,18 @@ glm::vec3 Spline::getDerivative(std::size_t segmentIndex, float t) const
 
 glm::vec3 Spline::getTangent(std::size_t segmentIndex, float t) const
 {
-    if (segmentCount() == 0 || segmentIndex >= segmentCount())
+    if (segmentCount() == 0)
     {
         throw std::out_of_range("Spline::getTangent invalid segment index");
     }
-
+    assert(segmentIndex < segmentCount());
 
     t = std::clamp(t, 0.0f, 1.0f);
 
     //pochodna po t
     glm::vec3 derivative = getDerivative(segmentIndex, t);
-
     float len = glm::length(derivative);
-    if (len >= kEps)
-    {
-        return derivative / len;
-    }
+    if (len >= kEps) return derivative / len;
 
     const glm::vec3& P1 = nodes_[segmentIndex + 1].pos;
     const glm::vec3& P2 = nodes_[segmentIndex + 2].pos;
