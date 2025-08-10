@@ -37,9 +37,10 @@ std::size_t Spline::segmentCount() const
 
 glm::vec3 Spline::getPosition(std::size_t segmentIndex, float t) const
 {
-    if (segmentCount() == 0 || segmentIndex >= segmentCount())
+    assert(segmentIndex < segmentCount());
+    if (segmentCount() == 0)
     {
-        throw std::out_of_range("Spline::getPosition invalid segment index");
+        throw std::out_of_range("Spline::getPosition no segments");
     }
 
     const glm::vec3& P0 = nodes_[segmentIndex + 0].pos;
@@ -65,11 +66,12 @@ glm::vec3 Spline::getPosition(std::size_t segmentIndex, float t) const
         );
 }
 
-glm::vec3 Spline::getTangent(std::size_t segmentIndex, float t) const
+glm::vec3 Spline::getDerivative(std::size_t segmentIndex, float t) const
 {
-    if (segmentCount() == 0 || segmentIndex >= segmentCount())
+    assert(segmentIndex < segmentCount());
+    if (segmentCount() == 0)
     {
-        throw std::out_of_range("Spline::getTangent invalid segment index");
+        throw std::out_of_range("Spline::getDerivative no segments");
     }
 
     const glm::vec3& P0 = nodes_[segmentIndex + 0].pos;
@@ -81,33 +83,50 @@ glm::vec3 Spline::getTangent(std::size_t segmentIndex, float t) const
     float t2 = t * t;
 
     //pochodna po t
-    glm::vec3 derivative = 0.5f * (
+    return 0.5f * (
         (-P0 + P2) +
         (2.f * P0 - 5.0f * P1 + 4.0f * P2 - P3) * (2.0f * t) +
         (-P0 + 3.0f * P1 - 3.0f * P2 + P3) * (3.0f * t2)
         );
+}
 
-    constexpr float epsilon = 0.000001f;
+glm::vec3 Spline::getTangent(std::size_t segmentIndex, float t) const
+{
+    if (segmentCount() == 0 || segmentIndex >= segmentCount())
+    {
+        throw std::out_of_range("Spline::getTangent invalid segment index");
+    }
+
+
+    t = std::clamp(t, 0.0f, 1.0f);
+
+    //pochodna po t
+    glm::vec3 derivative = getDerivative(segmentIndex, t);
+
     float len = glm::length(derivative);
-    if (len >= epsilon)
+    if (len >= kEps)
     {
         return derivative / len;
     }
 
+    const glm::vec3& P1 = nodes_[segmentIndex + 1].pos;
+    const glm::vec3& P2 = nodes_[segmentIndex + 2].pos;
+
     glm::vec3 seg = P2 - P1;
     float segLen = glm::length(seg);
-    if (segLen >= epsilon)
+    if (segLen >= kEps)
     {
         return seg / segLen;
     }
 
+    const glm::vec3& P0 = nodes_[segmentIndex + 0].pos;
+    const glm::vec3& P3 = nodes_[segmentIndex + 3].pos;
     glm::vec3 wide = P3 - P0;
     float wideLen = glm::length(wide);
-    if (wideLen >= epsilon)
+    if (wideLen >= kEps)
     {
         return wide / wideLen;
     }
-
     return {1.0f, 0.0f, 0.0f};
 }
 
@@ -126,7 +145,6 @@ void Spline::rebuildArcLengthLUT(std::size_t minSamplesPerSegment)
     lut_.clear();
     lut_.reserve(segCount);
     segPrefix_.assign(segCount, 0.f);
-    constexpr float epsilon = 10e-6f;
     for (std::size_t seg = 0; seg < segCount; ++seg)
     {
         SegmentLUT segLUT;
@@ -139,7 +157,7 @@ void Spline::rebuildArcLengthLUT(std::size_t minSamplesPerSegment)
             float u = static_cast<float>(i) / static_cast<float>(minSamplesPerSegment);
             glm::vec3 pos = getPosition(seg, u);
             float ds = glm::length(pos - prevPos);
-            if (ds < epsilon) ds = 0.f;
+            if (ds < kEps) ds = 0.f;
             s += ds;
             segLUT.samples[i] = {u, s, pos};
             prevPos = pos;
@@ -207,4 +225,25 @@ glm::vec3 Spline::getPositionAtS(float s) const
         float u = it0->u + alpha * (it1->u - it0->u);
 
         return getPosition(k, u);
+}
+
+glm::vec3 Spline::getTangentAtS(float s) const
+{
+    auto [k, sLocal] = locateSegmentByS(s);
+    const auto& seg = lut_[k];
+
+    if (sLocal <= 0.f) return getTangent(k, 0.f);
+    if (sLocal >= seg.length) return getTangent(k, 1.f);
+
+    const auto& samples = seg.samples;
+    auto it1 = std::lower_bound(samples.begin(), samples.end(), sLocal,
+                                [](const ArcSample& a, float val) { return a.s < val; });
+
+    auto it0 = std::prev(it1);
+    float denom = std::max(it1->s - it0->s, 1e-6f);
+    float alpha = (sLocal - it0->s) / denom;
+    alpha = std::clamp(alpha, 0.f, 1.f);
+    float u = it0->u + alpha * (it1->u - it0->u);
+
+    return getTangent(k, u);
 }
