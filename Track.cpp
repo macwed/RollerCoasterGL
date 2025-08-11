@@ -7,6 +7,7 @@
 #include <glm/glm.hpp>
 #include "Track.hpp"
 
+#include <algorithm>
 #include <functional>
 #include <glm/gtx/quaternion.hpp>
 
@@ -25,6 +26,60 @@ void Track::pushPoint(float x, float y, float z)
 
 void Track::popPoint() { points_.pop_back(); }
 
+float Track::approximateSForPoint(const Spline& spline, const glm::vec3& p, float s0, float s1, float ds)
+{
+    float bestS = s0, bestD2 = std::numeric_limits<float>::infinity();
+    for (float s = s0; s < s1; s += ds)
+    {
+        glm::vec3 q = spline.getPositionAtS(s);
+        float d2 = glm::length(q - p);
+        if (d2 < bestD2)
+        {
+            bestD2 = d2;
+            bestS = s;
+        }
+    }
+    return bestS;
+}
+
+void Track::buildStationIntervals(const Spline& spline, float sampleStep)
+{
+    stationIntervals_.clear();
+
+    for (std::size_t i = 0; i < nodeMeta_.size(); ++i)
+    {
+        if (nodeMeta_[i].stationStart && nodeMeta_[i].stationLength > 0.f)
+        {
+            const glm::vec3 nodePos = spline.getNode(i).pos;
+            float sA = approximateSForPoint(spline, nodePos, 0, spline.totalLength(), sampleStep);
+            float sB = std::min(sA + nodeMeta_[i].stationLength, spline.totalLength());
+            stationIntervals_.emplace_back(sA, sB);
+        }
+    }
+
+    for (std::size_t i = 0; i + 1 < nodeMeta_.size(); ++i)
+    {
+        if (nodeMeta_[i].stationStart && nodeMeta_[i + 1].stationEnd)
+        {
+            const glm::vec3 Apos = spline.getNode(i).pos;
+            const glm::vec3 Bpos = spline.getNode(i + 1).pos;
+            float sA = approximateSForPoint(spline, Apos, 0, spline.totalLength(), sampleStep);
+            float sB = approximateSForPoint(spline, Bpos, 0, spline.totalLength(), sampleStep);
+
+            if (sB < sA) std::swap(sA, sB);
+            stationIntervals_.emplace_back(sA, sB);
+        }
+    }
+    std::ranges::sort(stationIntervals_);
+    std::vector<std::pair<float, float>> merged;
+    for (auto [a, b] : stationIntervals_)
+    {
+        if (merged.empty() || a > merged.back().second) merged.push_back(std::make_pair(a, b));
+        else merged.back().second = std::max(merged.back().second, b);
+    }
+    stationIntervals_.swap(merged);
+}
+
 
 std::vector<Frame> Track::buildPTF(const Spline& spline, float ds, glm::vec3 globalUp, float l_station,
                                    std::function<float(float)> rollAtS)
@@ -33,15 +88,6 @@ std::vector<Frame> Track::buildPTF(const Spline& spline, float ds, glm::vec3 glo
 
     std::vector<Frame> frames;
     frames.reserve(static_cast<std::size_t>(trackLength / ds) + 2);
-
-    auto Tdir = [&](float s)
-    {
-        glm::vec3 t = spline.getTangentAtS(s);
-        float L2 = glm::length2(t);
-        return (L2 > kEps) ? sqrtf(L2) : glm::vec3(0, 0, 1);
-    };
-
-    float s = 0.f;
 
     glm::vec3 T0 = glm::normalize(spline.getTangentAtS(0));
     glm::vec3 N0_raw = globalUp -  T0 * glm::dot(globalUp, T0);
