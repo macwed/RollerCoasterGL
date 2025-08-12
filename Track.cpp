@@ -80,6 +80,35 @@ void Track::buildStationIntervals(const Spline& spline, float sampleStep)
     stationIntervals_.swap(merged);
 }
 
+bool Track::isNearStationEdge(float s, float feather) const
+{
+    for (auto [a, b] : stationIntervals_)
+    {
+        if ((s >= a - feather && s < a) || s > b && s <= b + feather) return true;
+    }
+    return false;
+}
+
+float Track::stationEdgeFadeWeight(float s, float feather) const
+{
+    for (auto [a, b] : stationIntervals_)
+    {
+        if (s >= a - feather && s < a)
+        {
+            float t = (s - (a - feather)) / feather;
+            return t * t * (3.f - 2.f * t);
+        }
+        if (s > b && s <= b + feather)
+        {
+            float t = 1.f - (s - b) / feather;
+            return t * t * (3.f - 2.f * t);
+        }
+    }
+    return 0.f;
+}
+
+
+
 std::vector<Frame> Track::buildPTF(const Spline& spline, float ds, glm::vec3 globalUp, float l_station,
                                    std::function<float(float)> rollAtS)
 {

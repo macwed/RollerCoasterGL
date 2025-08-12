@@ -65,6 +65,9 @@ public:
         return false;
     }
 
+    bool isNearStationEdge(float s, float feather) const;
+    float stationEdgeFadeWeight(float s, float feather) const;
+
     void uploadToGPU();
     void draw() const;
 
