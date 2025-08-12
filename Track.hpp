@@ -4,13 +4,12 @@
 
 #ifndef TRACK_HPP
 #define TRACK_HPP
-#include <functional>
 #include <vector>
-#include <glm/vec3.hpp>
 #include <glm/gtc/quaternion.hpp>
-
 #include "DrawableMixin.hpp"
 #include "Spline.hpp"
+
+constexpr float kEps = 1e-6f;
 
 enum class EdgeType {CatmullRom, Linear, Circular, Helix};
 
@@ -29,8 +28,7 @@ struct EdgeMeta
 
 struct RollKey
 {
-    float s;
-    float roll;
+    float s, roll;
 };
 
 struct Frame
@@ -48,25 +46,17 @@ public:
     Track();
     void releaseGL();
 
-    void pushPoint(float x, float y, float z);
-    void popPoint();
-    std::vector<Frame> buildPTF (const Spline& spline, float ds, glm::vec3 globalUp, float l_station,
-                                   std::function<float(float)> rollAtS);
+    std::vector<Frame> buildPTF (const Spline& spline, float ds, glm::vec3 globalUp) const;
 
     static float approximateSForPoint(const Spline& spline, const glm::vec3& p, float s0, float s1, float ds);
     void buildStationIntervals(const Spline& spline, float sampleStep);
 
-    inline bool isInStation(float s, float feather)
-    {
-        for (auto [a, b] : stationIntervals_)
-        {
-            if (s >= a - feather && s <= b + feather) return true;
-        }
-        return false;
-    }
+    bool isInStation(float s) const;
 
-    bool isNearStationEdge(float s, float feather) const;
-    float stationEdgeFadeWeight(float s, float feather) const;
+    bool isNearStationEdge(float s) const;
+    float stationEdgeFadeWeight(float s) const;
+    void rebuildRollKeys(const Spline& spline, float sampleStep);
+    float manualRollAtS(float s) const;
 
     void uploadToGPU();
     void draw() const;
@@ -80,16 +70,10 @@ private:
     std::vector<glm::uint32_t> indices_;
     unsigned vbo_, vao_, ibo_;
 
-    static inline glm::vec3 rotateAroundAxis(const glm::vec3& v, const glm::vec3& axis, float angle)
-    {
-        glm::quat q = glm::angleAxis(angle, axis);
-        return q * v;
-    }
+    const float feather = 0.75f;
 
-    /*glm::vec3 interpolate()
-    {
-        //TODO
-    }*/
+    static glm::vec3 rotateAroundAxis(const glm::vec3& v, const glm::vec3& axis, float angle);
+
 };
 
 

@@ -9,7 +9,6 @@
 #include <glm/vec3.hpp>
 #include "Spline.hpp"
 
-
 void Spline::addNode(const Node& node)
 {
     nodes_.push_back(node);
