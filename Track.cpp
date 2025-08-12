@@ -80,7 +80,6 @@ void Track::buildStationIntervals(const Spline& spline, float sampleStep)
     stationIntervals_.swap(merged);
 }
 
-
 std::vector<Frame> Track::buildPTF(const Spline& spline, float ds, glm::vec3 globalUp, float l_station,
                                    std::function<float(float)> rollAtS)
 {

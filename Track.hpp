@@ -4,6 +4,7 @@
 
 #ifndef TRACK_HPP
 #define TRACK_HPP
+#include <functional>
 #include <vector>
 #include <glm/vec3.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -54,6 +55,15 @@ public:
 
     static float approximateSForPoint(const Spline& spline, const glm::vec3& p, float s0, float s1, float ds);
     void buildStationIntervals(const Spline& spline, float sampleStep);
+
+    inline bool isInStation(float s, float feather)
+    {
+        for (auto [a, b] : stationIntervals_)
+        {
+            if (s >= a - feather && s <= b + feather) return true;
+        }
+        return false;
+    }
 
     void uploadToGPU();
     void draw() const;
