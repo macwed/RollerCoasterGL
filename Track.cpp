@@ -19,20 +19,13 @@ void Track::releaseGL()
     if (ibo_) {glDeleteBuffers(1, &ibo_); ibo_ = 0;}
 }
 
-void Track::pushPoint(float x, float y, float z)
-{
-    points_.emplace_back(x, y, z);
-}
-
-void Track::popPoint() { points_.pop_back(); }
-
 float Track::approximateSForPoint(const Spline& spline, const glm::vec3& p, float s0, float s1, float ds)
 {
     float bestS = s0, bestD2 = std::numeric_limits<float>::infinity();
-    for (float s = s0; s < s1; s += ds)
+    for (float s = s0; s <= s1; s += ds)
     {
         glm::vec3 q = spline.getPositionAtS(s);
-        float d2 = glm::length(q - p);
+        float d2 = glm::length2(q - p);
         if (d2 < bestD2)
         {
             bestD2 = d2;
@@ -107,8 +100,6 @@ float Track::stationEdgeFadeWeight(float s, float feather) const
     return 0.f;
 }
 
-
-
 std::vector<Frame> Track::buildPTF(const Spline& spline, float ds, glm::vec3 globalUp, float l_station,
                                    std::function<float(float)> rollAtS)
 {
@@ -119,8 +110,14 @@ std::vector<Frame> Track::buildPTF(const Spline& spline, float ds, glm::vec3 glo
 
     glm::vec3 T0 = glm::normalize(spline.getTangentAtS(0));
     glm::vec3 N0_raw = globalUp -  T0 * glm::dot(globalUp, T0);
-    glm::vec3 N0 = glm::normalize(N0_raw); //zakładam, że odcinek startowy nigdy nie będzie równoległy do globalUp (pionowy)
+    if (glm::length(N0_raw) < 1e-8f) //zabezpieczenie gdyby jednak punkt startowy był (prawie) pionowy... pionowa stacja? cmon...
+    {
+        glm::vec3 tmp = (std::abs(T0.y < 0.9f) ? glm::vec3(0, 1, 0) : glm::vec3 (1, 0, 0));
+        N0_raw = tmp - T0 * glm::dot(tmp, T0);
+    }
+    glm::vec3 N0 = glm::normalize(N0_raw);
     glm::vec3 B0 = glm::normalize(glm::cross(T0, N0));
+    N0 = glm::normalize(glm::cross(B0, T0));
     frames.emplace_back(spline.getPositionAtS(0), T0, N0, B0, 0);
 
     for (float s = ds; s <= trackLength + 0.5f * ds; s+=ds)
