@@ -29,6 +29,32 @@ void Spline::removeNode(std::size_t i)
     nodes_.erase(nodes_.begin() + static_cast<ptrdiff_t>(i));
 }
 
+bool Spline::isNodeOnCurve(std::size_t i) const
+{
+    return (i > 0 && i + 1 < nodes_.size());
+}
+
+float Spline::sAtNode(std::size_t i) const
+{
+    if (!isNodeOnCurve(i)) throw std::out_of_range("node not on curve");
+    if (i == 1) return 0.f;
+    std::size_t segEnd = i - 1;
+    return segPrefix_[segEnd] + lut_[segEnd].length;
+}
+
+std::size_t Spline::segmentIndexEndingAtNode(std::size_t i) const
+{
+    if (!isNodeOnCurve(i)) throw std::out_of_range("node not on curve");
+    return i - 1;
+}
+
+std::size_t Spline::segmentIndexStartingAtNode(std::size_t i) const
+{
+    if (!isNodeOnCurve(i)) throw std::out_of_range("node not on curve");
+    return i;
+}
+
+
 std::size_t Spline::segmentCount() const
 {
     return nodes_.size() >= 4 ? nodes_.size() - 3 : 0;
@@ -167,6 +193,17 @@ void Spline::rebuildArcLengthLUT(std::size_t minSamplesPerSegment)
     }
     totalLength_ = segPrefix_.back() + lut_.back().length;
 }
+
+float Spline::arcLengthAtSegmentStart(std::size_t seg) const
+{
+    return segPrefix_[seg];
+}
+
+float Spline::arcLengthAtSegmentEnd(std::size_t seg) const
+{
+    return segPrefix_[seg] + lut_[seg].length;
+}
+
 
 bool Spline::isClosed() const
 {

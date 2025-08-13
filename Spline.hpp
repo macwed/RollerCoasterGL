@@ -39,6 +39,11 @@ public:
     void moveNode(std::size_t i, const glm::vec3& newPos);
     void removeNode(std::size_t i);
 
+    [[nodiscard]] bool isNodeOnCurve(std::size_t i) const;
+    [[nodiscard]] float sAtNode(std::size_t i) const;
+    [[nodiscard]] std::size_t segmentIndexEndingAtNode(std::size_t i) const;
+    [[nodiscard]] std::size_t segmentIndexStartingAtNode(std::size_t i) const;
+
     [[nodiscard]] std::size_t segmentCount() const;
     void rebuildArcLengthLUT(std::size_t minSamplesPerSegment = 64);
     [[nodiscard]] float totalLength() const noexcept { return totalLength_; }
@@ -48,6 +53,11 @@ public:
 
     [[nodiscard]] glm::vec3 getPositionAtS(float s) const;
     [[nodiscard]] glm::vec3 getTangentAtS(float s) const;
+
+    [[nodiscard]] float arcLengthAtSegmentStart(std::size_t seg) const;
+    [[nodiscard]] float arcLengthAtSegmentEnd(std::size_t seg) const;
+
+    [[nodiscard]] bool hasValidLUT() const;
 
     [[nodiscard]] bool isClosed() const;
 
