@@ -59,7 +59,8 @@ void Track::buildStationIntervals(const Spline& spline, float sampleStep)
         if (nodeMeta_[i].stationStart && stationL > 0.f)
         {
             const glm::vec3 nodePos = spline.getNode(i).pos;
-            float sA = approximateSForPoint(spline, nodePos, 0, L, sampleStep);
+            float sA = spline.isNodeOnCurve(i) ? spline.sAtNode(i) :
+                            approximateSForPoint(spline, nodePos, 0, L, sampleStep);
             float sB = std::min(sA + stationL, L);
             if (sB <= L)
                 pushInterval(sA, sB);
@@ -74,8 +75,10 @@ void Track::buildStationIntervals(const Spline& spline, float sampleStep)
         {
             const glm::vec3 Apos = spline.getNode(i).pos;
             const glm::vec3 Bpos = spline.getNode(i + 1).pos;
-            float sA = approximateSForPoint(spline, Apos, 0, spline.totalLength(), sampleStep);
-            float sB = approximateSForPoint(spline, Bpos, 0, spline.totalLength(), sampleStep);
+            float sA = spline.isNodeOnCurve(i) ? spline.sAtNode(i) :
+                            approximateSForPoint(spline, Apos, 0, spline.totalLength(), sampleStep);
+            float sB = spline.isNodeOnCurve(i + 1) ? spline.sAtNode(i + 1) :
+                            approximateSForPoint(spline, Bpos, 0, spline.totalLength(), sampleStep);
 
             if (sB < sA) std::swap(sA, sB);
             pushInterval(sA, sB);
@@ -136,7 +139,8 @@ void Track::rebuildRollKeys(const Spline& spline, float sampleStep)
     for (std::size_t i = 0; i < nodeMeta_.size(); ++i)
     {
         const glm::vec3 nodePos = spline.getNode(i).pos;
-        float s = approximateSForPoint(spline, nodePos, 0.f, spline.totalLength(), sampleStep);
+        float s = spline.isNodeOnCurve(i) ? spline.sAtNode(i) :
+                    approximateSForPoint(spline, nodePos, 0.f, spline.totalLength(), sampleStep);
         rollKeys_.emplace_back(s, nodeMeta_[i].userRoll);
     }
     std::ranges::sort(rollKeys_, {}, &RollKey::s);
