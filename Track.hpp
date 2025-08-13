@@ -9,7 +9,7 @@
 #include "DrawableMixin.hpp"
 #include "Spline.hpp"
 
-constexpr float kEps = 1e-6f;
+constexpr float kEpsVertical = 1e-8f;
 
 enum class EdgeType {CatmullRom, Linear, Circular, Helix};
 
@@ -56,7 +56,8 @@ public:
     bool isNearStationEdge(float s) const;
     float stationEdgeFadeWeight(float s) const;
     void rebuildRollKeys(const Spline& spline, float sampleStep);
-    float manualRollAtS(float s) const;
+    float manualRollAtS(const Spline& spline, float s) const;
+    void syncMetaWithSpline(const Spline& spline);
 
     void uploadToGPU();
     void draw() const;
@@ -67,7 +68,7 @@ private:
     std::vector<std::pair<float, float>> stationIntervals_;
     std::vector<RollKey> rollKeys_;
     std::vector<glm::vec3> points_;
-    std::vector<glm::uint32_t> indices_;
+    std::vector<std::uint32_t> indices_;
     unsigned vbo_, vao_, ibo_;
 
     const float feather = 0.75f;

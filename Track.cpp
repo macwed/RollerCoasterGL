@@ -36,7 +36,20 @@ float Track::approximateSForPoint(const Spline& spline, const glm::vec3& p, floa
 
 void Track::buildStationIntervals(const Spline& spline, float sampleStep)
 {
+    syncMetaWithSpline(spline);
+
     stationIntervals_.clear();
+    const float L = spline.totalLength();
+
+    auto pushInterval = [&](float a, float b)
+    {
+        if (a <= b) stationIntervals_.emplace_back(a, b);
+        else
+        {
+            stationIntervals_.emplace_back(a, L);
+            stationIntervals_.emplace_back(0.f, b);
+        }
+    };
 
     for (std::size_t i = 0; i < nodeMeta_.size(); ++i)
     {
@@ -44,9 +57,12 @@ void Track::buildStationIntervals(const Spline& spline, float sampleStep)
         if (nodeMeta_[i].stationStart && stationL > 0.f)
         {
             const glm::vec3 nodePos = spline.getNode(i).pos;
-            float sA = approximateSForPoint(spline, nodePos, 0, spline.totalLength(), sampleStep);
-            float sB = std::min(sA + stationL, spline.totalLength());
-            stationIntervals_.emplace_back(sA, sB);
+            float sA = approximateSForPoint(spline, nodePos, 0, L, sampleStep);
+            float sB = std::min(sA + stationL, L);
+            if (sB <= L)
+                pushInterval(sA, sB);
+            else
+                pushInterval(sA, std::fmod(sB, L));
         }
     }
 
@@ -60,7 +76,7 @@ void Track::buildStationIntervals(const Spline& spline, float sampleStep)
             float sB = approximateSForPoint(spline, Bpos, 0, spline.totalLength(), sampleStep);
 
             if (sB < sA) std::swap(sA, sB);
-            stationIntervals_.emplace_back(sA, sB);
+            pushInterval(sA, sB);
         }
     }
     std::ranges::sort(stationIntervals_);
@@ -82,6 +98,7 @@ bool Track::isInStation(float s) const {
 
 bool Track::isNearStationEdge(float s) const
 {
+    if (stationIntervals_.empty()) return false;
     for (auto [a, b] : stationIntervals_)
     {
         if ((s >= a - feather && s < a) || (s > b && s <= b + feather)) return true;
@@ -91,6 +108,7 @@ bool Track::isNearStationEdge(float s) const
 
 float Track::stationEdgeFadeWeight(float s) const
 {
+    if (stationIntervals_.empty()) return 0.f;
     for (auto [a, b] : stationIntervals_)
     {
         if (s >= a - feather && s < a)
@@ -109,6 +127,8 @@ float Track::stationEdgeFadeWeight(float s) const
 
 void Track::rebuildRollKeys(const Spline& spline, float sampleStep)
 {
+    syncMetaWithSpline(spline);
+
     rollKeys_.clear();
     rollKeys_.reserve(nodeMeta_.size());
     for (std::size_t i = 0; i < nodeMeta_.size(); ++i)
@@ -135,12 +155,20 @@ void Track::rebuildRollKeys(const Spline& spline, float sampleStep)
     rollKeys_.swap(merged);
 }
 
-float Track::manualRollAtS(float s) const
+float Track::manualRollAtS(const Spline& spline, float s) const
 {
     if (rollKeys_.empty()) return 0.f;
-    if (s <= rollKeys_.front().s) return rollKeys_.front().roll;
-    if (s >= rollKeys_.back().s) return rollKeys_.back().roll;
 
+    if (spline.isClosed())
+    {
+        float L = spline.totalLength();
+        s = std::fmod(std::fmod(s, L) + L, L);
+    } else
+    {
+        if (s <= rollKeys_.front().s) return rollKeys_.front().roll;
+        if (s >= rollKeys_.back().s) return rollKeys_.back().roll;
+    }
+    
     auto it = std::upper_bound(rollKeys_.begin(), rollKeys_.end(), s, [](float v, const RollKey& k){ return v < k.s; });
     const RollKey& k1 = *(it - 1);
     const RollKey& k2 = *it;
@@ -169,7 +197,7 @@ std::vector<Frame> Track::buildPTF(const Spline& spline, float ds, glm::vec3 glo
     frames.emplace_back(Frame{spline.getPositionAtS(0), T0, N0, B0, 0.f});
 
     //rotacja wektora styczna względem wektora stycznego w punkcie poprzednim i wyliczenie norm,binorm
-    for (float s = ds; s <= trackLength + 0.5f * ds; s+=ds)
+    for (float s = ds; s < trackLength; s+=ds)
     {
         glm::vec3 T_prev = frames.back().T;
         glm::vec3 T_curr = spline.getTangentAtS(s);
@@ -203,25 +231,30 @@ std::vector<Frame> Track::buildPTF(const Spline& spline, float ds, glm::vec3 glo
         }
 
         const bool inStation = isInStation(s);
-        if (inStation || isNearStationEdge(s)) {
+        if (inStation || isNearStationEdge(s))
+        {
             glm::vec3 Ng = globalUp - T_curr * glm::dot(globalUp, T_curr);
-            if (glm::length2(Ng) > kEpsVertical) {
+            if (glm::length2(Ng) <= kEpsVertical) {
+                glm::vec3 fallback = (std::abs(T_curr.y) < 0.9f) ? glm::vec3(0,1,0) : glm::vec3(1,0,0);
+                Ng = fallback - T_curr * glm::dot(fallback, T_curr);
+            } else
+            {
                 Ng = glm::normalize(Ng);
-                glm::vec3 Bg = glm::normalize(glm::cross(T_curr, Ng));
-                Ng = glm::normalize(glm::cross(Bg, T_curr));
-                if (inStation) {
-                    N_curr = Ng;
-                    B_curr = Bg;
-                } else {
-                    float w = stationEdgeFadeWeight(s);
-                    N_curr = glm::normalize(glm::mix(N_curr, Ng, w));
-                    B_curr = glm::normalize(glm::cross(T_curr, N_curr));
-                    N_curr = glm::normalize(glm::cross(B_curr, T_curr));
-                }
+            }
+            glm::vec3 Bg = glm::normalize(glm::cross(T_curr, Ng));
+            Ng = glm::normalize(glm::cross(Bg, T_curr));
+            if (inStation) {
+                N_curr = Ng;
+                B_curr = Bg;
+            } else {
+                float w = stationEdgeFadeWeight(s);
+                N_curr = glm::normalize(glm::mix(N_curr, Ng, w));
+                B_curr = glm::normalize(glm::cross(T_curr, N_curr));
+                N_curr = glm::normalize(glm::cross(B_curr, T_curr));
             }
         }
 
-        float roll = inStation ? 0.f : manualRollAtS(s);
+        float roll = inStation ? 0.f : manualRollAtS(spline, s);
         if (std::abs(roll) > kEps)
         {
             N_curr = rotateAroundAxis(N_curr, T_curr, roll);
@@ -231,6 +264,10 @@ std::vector<Frame> Track::buildPTF(const Spline& spline, float ds, glm::vec3 glo
 
         frames.emplace_back(Frame{spline.getPositionAtS(s), T_curr, N_curr, B_curr, s});
     }
+    frames.emplace_back(Frame{
+        spline.getPositionAtS(trackLength), glm::normalize(spline.getTangentAtS(trackLength)), frames.back().N,
+        frames.back().B, trackLength
+    });
 
     return frames;
 }
@@ -240,6 +277,15 @@ glm::vec3 Track::rotateAroundAxis(const glm::vec3& v, const glm::vec3& axis, flo
     glm::quat q = glm::angleAxis(angle, axis);
     return q * v;
 }
+
+void Track::syncMetaWithSpline(const Spline& spline)
+{
+    const std::size_t n = spline.nodeCount();
+    const std::size_t sg = spline.segmentCount();
+    nodeMeta_.resize(n);
+    edgeMeta_.resize(sg);
+}
+
 
 void Track::uploadToGPU()
 {

@@ -56,11 +56,16 @@ public:
         return nodes_[i];
     }
 
+    [[nodiscard]] std::size_t nodeCount() const
+    {
+        return nodes_.size();
+    }
+
 private:
     std::vector<Node> nodes_;
     std::vector<SegmentLUT> lut_; //jeden LUT na segment
     std::vector<float> segPrefix_;
-    //bool closed_ = false;
+    bool closed_ = false;
     float totalLength_ = 0.f;
 
     [[nodiscard]] glm::vec3 getDerivative(std::size_t segmentIndex, float t) const;
