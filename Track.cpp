@@ -190,19 +190,13 @@ std::vector<Frame> Track::buildPTF(const Spline& spline, float ds, glm::vec3 glo
         }
         else
         {
-            //taki bezpiecznik gdyby jednak v styczne były równoległe o przeciwnych zwrotach - czasem zjebie ramkę na spojeniach segmentów itp
-            if (cos_phi < 0.f)
-            {
-                //obrót o pi wokół poprzedniej dobrej osi
-                float ref = glm::length2(glm::cross(T_prev, globalUp));
-                glm::vec3 axis = ref > kEpsVertical ? glm::vec3(0, 1, 0) : glm::vec3 (1, 0, 0);
-                axis = glm::normalize(axis);
-                glm::vec3 N_rot = rotateAroundAxis(N_prev, axis, glm::pi<float>());
-                B_curr = glm::normalize(glm::cross(T_curr, N_rot));
-                N_curr = glm::normalize(glm::cross(B_curr, T_curr));
-            } else
-            {
-                //niemal równoległe, ale w zgodnym kierunku
+            //taki bezpiecznik gdyby jednak vec styczne były równoległe o przeciwnych zwrotach - czasem zjebie ramkę na spojeniach segmentów itp
+            if (cos_phi < 0.f) {
+                // T_curr ~ -T_prev
+                N_curr = -N_prev;
+                B_curr = -frames.back().B;
+            } else {
+                //niemal równoległe o zgodnym kierunku
                 N_curr = N_prev;
                 B_curr = frames.back().B;
             }
