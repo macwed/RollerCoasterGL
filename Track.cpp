@@ -8,6 +8,8 @@
 #include <glm/glm.hpp>
 #include <limits>
 #include "Track.hpp"
+
+#include <iostream>
 #include <glm/gtx/quaternion.hpp>
 
 Track::Track() : vbo_(0), vao_(0), ibo_(0) {}
@@ -158,22 +160,43 @@ void Track::rebuildRollKeys(const Spline& spline, float sampleStep)
 float Track::manualRollAtS(const Spline& spline, float s) const
 {
     if (rollKeys_.empty()) return 0.f;
+    float L = spline.totalLength();
+
+    auto wrap01 = [&](float x)
+    {
+        return std::fmod(std::fmod(x, L) + L, L);
+    };
 
     if (spline.isClosed())
     {
-        float L = spline.totalLength();
-        s = std::fmod(std::fmod(s, L) + L, L);
+        s = wrap01(s);
     } else
     {
         if (s <= rollKeys_.front().s) return rollKeys_.front().roll;
         if (s >= rollKeys_.back().s) return rollKeys_.back().roll;
     }
-    
-    auto it = std::upper_bound(rollKeys_.begin(), rollKeys_.end(), s, [](float v, const RollKey& k){ return v < k.s; });
-    const RollKey& k1 = *(it - 1);
-    const RollKey& k2 = *it;
 
-    float t = (s - k1.s) / (k2.s - k1.s);
+    auto it = std::upper_bound(rollKeys_.begin(), rollKeys_.end(), s,
+                                                            [](float v, const RollKey& k){ return v < k.s; });
+    const RollKey& k1 = (it == rollKeys_.begin()) ? rollKeys_.back() : *(it - 1);
+    const RollKey& k2 = (it == rollKeys_.end()) ? rollKeys_.front() : *it;
+
+    float s1 = k1.s;
+    float s2 = k2.s;
+    float ds = s2 - s1;
+
+    if (spline.isClosed() && ds < 0.f) ds += L;
+
+    if (std::abs(ds) < kEps)
+    {
+        std::cerr << "[Roll] Duplicate keys at s= " << s1 << std::endl;
+        return k1.roll;
+    }
+
+    float d = s - s1;
+    if (spline.isClosed() && d < 0.f) d += L;
+    float t = d / ds; //ds na pewno różne od 0
+
     return k1.roll * (1.f - t) + k2.roll * t;
 }
 
