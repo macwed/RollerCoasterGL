@@ -158,7 +158,7 @@ std::vector<Frame> Track::buildPTF(const Spline& spline, float ds, glm::vec3 glo
 
     glm::vec3 T0 = glm::normalize(spline.getTangentAtS(0));
     glm::vec3 N0_raw = globalUp -  T0 * glm::dot(globalUp, T0);
-    if (glm::length2(N0_raw) < 1e-8f) //zabezpieczenie gdyby jednak punkt startowy był (prawie) pionowy... pionowa stacja? cmon...
+    if (glm::length2(N0_raw) < kEpsVertical) //zabezpieczenie gdyby jednak punkt startowy był (prawie) pionowy... pionowa stacja? cmon...
     {
         glm::vec3 tmp = (std::abs(T0.y) < 0.9f ? glm::vec3(0, 1, 0) : glm::vec3 (1, 0, 0));
         N0_raw = tmp - T0 * glm::dot(tmp, T0);
@@ -168,18 +168,19 @@ std::vector<Frame> Track::buildPTF(const Spline& spline, float ds, glm::vec3 glo
     N0 = glm::normalize(glm::cross(B0, T0));
     frames.emplace_back(Frame{spline.getPositionAtS(0), T0, N0, B0, 0.f});
 
+    //rotacja wektora styczna względem wektora stycznego w punkcie poprzednim i wyliczenie norm,binorm
     for (float s = ds; s <= trackLength + 0.5f * ds; s+=ds)
     {
         glm::vec3 T_prev = frames.back().T;
         glm::vec3 T_curr = spline.getTangentAtS(s);
 
         float sin_phi = glm::length(glm::cross(T_prev, T_curr));
+        float cos_phi = std::clamp(glm::dot(T_prev, T_curr), -1.0f, 1.0f);
 
         glm::vec3 N_prev = frames.back().N;
         glm::vec3 N_curr, B_curr;
         if (std::abs(sin_phi) >= kEps)
         {
-            float cos_phi = std::clamp(glm::dot(T_prev, T_curr), -1.0f, 1.0f);
             float phi = std::atan2(sin_phi, cos_phi);
 
             glm::vec3 axis = glm::normalize(glm::cross(T_prev, T_curr));
@@ -189,14 +190,28 @@ std::vector<Frame> Track::buildPTF(const Spline& spline, float ds, glm::vec3 glo
         }
         else
         {
-            N_curr = N_prev;
-            B_curr = frames.back().B;
+            //taki bezpiecznik gdyby jednak v styczne były równoległe o przeciwnych zwrotach - czasem zjebie ramkę na spojeniach segmentów itp
+            if (cos_phi < 0.f)
+            {
+                //obrót o pi wokół poprzedniej dobrej osi
+                float ref = glm::length2(glm::cross(T_prev, globalUp));
+                glm::vec3 axis = ref > kEpsVertical ? glm::vec3(0, 1, 0) : glm::vec3 (1, 0, 0);
+                axis = glm::normalize(axis);
+                glm::vec3 N_rot = rotateAroundAxis(N_prev, axis, glm::pi<float>());
+                B_curr = glm::normalize(glm::cross(T_curr, N_rot));
+                N_curr = glm::normalize(glm::cross(B_curr, T_curr));
+            } else
+            {
+                //niemal równoległe, ale w zgodnym kierunku
+                N_curr = N_prev;
+                B_curr = frames.back().B;
+            }
         }
 
         const bool inStation = isInStation(s);
         if (inStation || isNearStationEdge(s)) {
             glm::vec3 Ng = globalUp - T_curr * glm::dot(globalUp, T_curr);
-            if (glm::length2(Ng) > 1e-8f) {
+            if (glm::length2(Ng) > kEpsVertical) {
                 Ng = glm::normalize(Ng);
                 glm::vec3 Bg = glm::normalize(glm::cross(T_curr, Ng));
                 Ng = glm::normalize(glm::cross(Bg, T_curr));
