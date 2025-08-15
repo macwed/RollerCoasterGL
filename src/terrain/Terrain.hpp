@@ -7,7 +7,7 @@
 
 #include <vector>
 #include <glm/glm.hpp>
-#include "Array_2D.hpp"
+#include "math/Array_2D.hpp"
 #include "SimplexNoise.hpp"
 
 

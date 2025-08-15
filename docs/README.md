@@ -5,7 +5,7 @@
 > **OpenGL 4.6  •  C++20  •  GLFW + GLAD + GLM  •  Linux / CLion**  
 > Student roller‑coaster ride – computer‑graphics course project.
 
-![WIP screenshot](docs/screenshot_wip.gif)
+![WIP screenshot](../docs/screenshot_wip.gif)
 
 ## Table of Contents
 - [Requirements](#requirements)
@@ -19,16 +19,16 @@
 
 ## Requirements
 
-| Tool / Library  | Tested Version    | Notes                                                            |
-|-----------------|-------------------|------------------------------------------------------------------|
+| Tool / Library  | Tested Version    | Notes                                                          |
+|-----------------|-------------------|----------------------------------------------------------------|
 | **CMake**       | ≥ 3.27            | CLion bundles a recent CMake; otherwise sudo apt install cmake |
-| **GCC / Clang** | GCC 13 / Clang 17 | Must support **C++20**                                           |
-| **vcpkg**       | commit HEAD     | For dependency management                                        |
-| **GLFW 3**      | 3.3.x             | From vcpkg                                                       |
-| **GLAD**        | 0.1.x             | Loader generated for OpenGL 3.3 core                             |
-| **GLM**         | 0.9.9             | Header‑only math library                                         |
+| **GCC / Clang** | GCC 13 / Clang 17 | Must support **C++20**                                         |
+| **vcpkg**       | commit HEAD       | For dependency management                                      |
+| **GLFW 3**      | 3.3.x             | From vcpkg                                                     |
+| **GLAD**        | 0.1.x             | Loader generated for OpenGL 4.6 core                           |
+| **GLM**         | 0.9.9             | Header‑only math library                                       |
 | **stb**         | latest            | stb_image.h for texture loading                                |
-| **Assimp**      | 5.x               | Import external 3D models                                        |
+| **Assimp**      | 5.x               | Import external 3D models                                      |
 
 ---
 
@@ -75,11 +75,20 @@ text
     │   └─ textures/
     ├─ docs/            # design docs, GIFs, architecture diagrams
     ├─ src/
+    │   ├─ camera/      # camera
     │   ├─ core/        # window setup, timing, input
     │   ├─ gfx/         # renderer, resources, shaders
-    │   ├─ physics/     # Catmull‑Rom spline, kinematics
-    │   └─ gameplay/    # components, camera rigs, game logic
+    │   │   ├─ geometry # meshes
+    │   │   ├─ gl
+    │   │   └─ render
+    │   ├─ math/        # Catmull‑Rom spline, array helper
+    │   ├─ physics/     # kinematics
+    │   ├─ terrain/     # terrain, heightmaps, simplex noise
+    │   └─ track/
     ├─ tests/           # unit tests (Catch2 / GoogleTest)
+    ├─ thirdparty
+    │   ├─ glad/
+    │   └─ imgui/
     ├─ CMakeLists.txt
     └─ vcpkg.json
 

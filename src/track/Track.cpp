@@ -241,7 +241,7 @@ void Track::buildStationIntervals(const Spline& spline, float sampleStep)
     constexpr float closeEps = 1e-4f;
     for (auto [a, b] : stationIntervals_)
     {
-        if (merged.empty() || a > merged.back().second + closeEps) merged.push_back(std::make_pair(a, b));
+        if (merged.empty() || a > merged.back().second + closeEps) merged.emplace_back(a, b);
         else merged.back().second = std::max(merged.back().second, b);
     }
     stationIntervals_.swap(merged);
@@ -283,6 +283,8 @@ void Track::rebuildRollKeys(const Spline& spline, float sampleStep)
 float Track::manualRollAtS(const Spline& spline, float s) const
 {
     if (rollKeys_.empty()) return 0.f;
+    if (rollKeys_.size() == 1) return rollKeys_[0].roll;
+
     float L = spline.totalLength();
 
     auto wrap01 = [&](float x)
@@ -335,6 +337,8 @@ void Track::syncMetaWithSpline(const Spline& spline)
 
 void Track::rebuildMeta(const Spline& spline) {
     syncMetaWithSpline(spline);
+    std::ranges::fill(edgeMeta_, EdgeMeta{EdgeType::CatmullRom});
+
     buildStationIntervals(spline, 0.05f);
 
     auto markLinearInStation = [&](const Spline& spl)

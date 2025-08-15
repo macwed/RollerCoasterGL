@@ -7,9 +7,9 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include "Terrain.hpp"
+#include "terrain/Terrain.hpp"
 #include "AppContext.hpp"
-#include "FreeFlyCam.hpp"
+#include "camera/FreeFlyCam.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -29,7 +29,7 @@ ProjectConfig cfg {
     .noiseLacunarity = 1.9f,
     .noisePersistence = 1.0f,
     .noiseExponent = 1.2f,
-    .noiseHeightScale = 50.0f
+    .noiseHeightScale = 20.0f
 };
 
 std::string loadShaderSource(const std::string& filename) {
@@ -156,9 +156,9 @@ int main()
 
     glViewport(0, 0, cfg.windowWidth, cfg.windowHeight);
 
-    std::string vertexSource = loadShaderSource("shaders/terrain.vert");
+    std::string vertexSource = loadShaderSource("assets/shaders/terrain.vert");
     std::cout << "Vert: " << vertexSource << std::endl;
-    std::string fragmentSource = loadShaderSource("shaders/terrain.frag");
+    std::string fragmentSource = loadShaderSource("assets/shaders/terrain.frag");
     std::cout << "Frag: " <<  fragmentSource << std::endl;
 
     GLuint shaderProgram = createShaderProgram(vertexSource, fragmentSource);

@@ -6,8 +6,8 @@
 #define TRACK_HPP
 #include <vector>
 #include <glm/gtc/quaternion.hpp>
-#include "DrawableMixin.hpp"
-#include "Spline.hpp"
+#include "gfx/render/DrawableMixin.hpp"
+#include "math/Spline.hpp"
 
 constexpr float kEpsVertical = 1e-8f;
 
@@ -50,7 +50,7 @@ class PathSampler
 public:
     PathSampler(const Spline& spline, const std::vector<EdgeMeta>& e) : spline_(spline), edge_(e) {}
 
-    Sample sampleAtS(float s) const;
+    [[nodiscard]] Sample sampleAtS(float s) const;
 private:
     const Spline& spline_;
     const std::vector<EdgeMeta>& edge_;
@@ -61,21 +61,22 @@ class Track : public DrawableMixin<Track>{
 public:
     Track();
 
-    std::vector<Frame> buildPTF (const Spline& spline, float ds, glm::vec3 globalUp) const;
+    [[nodiscard]] std::vector<Frame> buildPTF (const Spline& spline, float ds, glm::vec3 globalUp) const;
 
     static float approximateSForPoint(const Spline& spline, const glm::vec3& p, float s0, float s1, float ds);
 
-    float stationEdgeFadeWeight(float s) const;
-    bool isInStation(float s) const;
-    bool isNearStationEdge(float s) const;
+    [[nodiscard]] float stationEdgeFadeWeight(float s) const;
+    [[nodiscard]] bool isInStation(float s) const;
+    [[nodiscard]] bool isNearStationEdge(float s) const;
     void buildStationIntervals(const Spline& spline, float sampleStep);
 
     void rebuildRollKeys(const Spline& spline, float sampleStep);
-    float manualRollAtS(const Spline& spline, float s) const;
+    [[nodiscard]] float manualRollAtS(const Spline& spline, float s) const;
 
     void syncMetaWithSpline(const Spline& spline);
     void rebuildMeta(const Spline& spline);
 
+    void buildMeshFromFrames();
     void uploadToGPU();
     void draw() const;
     void releaseGL();

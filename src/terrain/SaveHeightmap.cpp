@@ -3,7 +3,7 @@
 //
 #include <fstream>
 
-#include "Array_2D.hpp"
+#include "math/Array_2D.hpp"
 #include "SaveHeightmap.hpp"
 
 

@@ -16,7 +16,6 @@ struct Node {
     float tension = 0.f;
     float continuity = 0.f;
     float bias = 0.f;
-    ;
 };
 
 struct ArcSample
@@ -58,9 +57,9 @@ public:
     [[nodiscard]] float arcLengthAtSegmentStart(std::size_t seg) const;
     [[nodiscard]] float arcLengthAtSegmentEnd(std::size_t seg) const;
 
-    [[nodiscard]] bool hasValidLUT() const;
-
+    void setClosed(bool c) noexcept { closed_ = c; };
     [[nodiscard]] bool isClosed() const;
+    [[nodiscard]] bool hasValidLUT() const;
 
     [[nodiscard]] Node getNode(std::size_t i) const
     {

@@ -4,8 +4,8 @@
 
 #ifndef APPCONTEXT_HPP
 #define APPCONTEXT_HPP
-#include "FreeFlyCam.hpp"
-#include "Terrain.hpp"
+#include "../camera/FreeFlyCam.hpp"
+#include "../terrain/Terrain.hpp"
 
 
 struct ProjectConfig

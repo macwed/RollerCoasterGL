@@ -5,7 +5,7 @@
 #ifndef SAVEHEIGHTMAP_HPP
 #define SAVEHEIGHTMAP_HPP
 
-#include "Array_2D.hpp"
+#include "math/Array_2D.hpp"
 
 void savePGM(const Array_2D<float>& arr, const std::string& filename);
 
