@@ -2,6 +2,8 @@
 // Created by maciej on 07.08.25.
 //
 #include <algorithm>
+#include <cassert>
+#include <ranges>
 #include <cmath>
 #include <stdexcept>
 #include <vector>

@@ -59,7 +59,9 @@ public:
 
     void setClosed(bool c) noexcept { closed_ = c; };
     [[nodiscard]] bool isClosed() const;
-    [[nodiscard]] bool hasValidLUT() const;
+    [[nodiscard]] bool hasValidLUT() const {
+        return !lut_.empty() && lut_.size() == segmentCount();
+    }
 
     [[nodiscard]] Node getNode(std::size_t i) const
     {

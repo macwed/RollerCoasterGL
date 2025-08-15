@@ -8,6 +8,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include "gfx/render/DrawableMixin.hpp"
 #include "math/Spline.hpp"
+#include "physics/PTFBuilder.hpp"
 
 constexpr float kEpsVertical = 1e-8f;
 
@@ -31,14 +32,7 @@ struct RollKey
     float s, roll;
 };
 
-struct Frame
-{
-    glm::vec3 pos;
-    glm::vec3 T; //styczna
-    glm::vec3 N; //wektor normalny ramki "do góry"
-    glm::vec3 B; //binormalny "w prawo"
-    float s; // droga od początku trasy
-};
+
 
 struct Sample
 {
@@ -60,9 +54,8 @@ class Track : public DrawableMixin<Track>{
 
 public:
     Track();
-
-    [[nodiscard]] std::vector<Frame> buildPTF (const Spline& spline, float ds, glm::vec3 globalUp) const;
-
+    std::vector<Frame> buildFrames(const Spline& spline, float ds,
+                                       glm::vec3 globalUp = {0,1,0}) const;
     static float approximateSForPoint(const Spline& spline, const glm::vec3& p, float s0, float s1, float ds);
 
     [[nodiscard]] float stationEdgeFadeWeight(float s) const;

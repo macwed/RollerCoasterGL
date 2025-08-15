@@ -8,6 +8,7 @@
 #include <glm/glm.hpp>
 #include <limits>
 #include "Track.hpp"
+#include "physics/PTFBuilder.hpp"
 
 #include <iostream>
 #include <glm/gtx/quaternion.hpp>
@@ -36,101 +37,23 @@ Sample PathSampler::sampleAtS(float s) const
 /*-------------------------------------------------TRACK::TRACK-------------------------------------------------------*/
 Track::Track() : vbo_(0), vao_(0), ibo_(0) {}
 
-std::vector<Frame> Track::buildPTF(const Spline& spline, float ds, glm::vec3 globalUp) const
+std::vector<Frame> Track::buildFrames(const Spline& spline, float ds, glm::vec3 globalUp) const
 {
-    const float trackLength = spline.totalLength();
-    PathSampler sampler(spline, edgeMeta_);
-
-    std::vector<Frame> frames;
-    frames.reserve(static_cast<std::size_t>(trackLength / ds) + 2);
-
-    auto s0 = sampler.sampleAtS(0.f);
-
-    glm::vec3 T0 = s0.tan;
-    glm::vec3 N0_raw = globalUp -  T0 * glm::dot(globalUp, T0);
-    if (glm::length2(N0_raw) < kEpsVertical) //zabezpieczenie gdyby jednak punkt startowy był (prawie) pionowy... pionowa stacja? cmon...
+    physics::MetaCallbacks meta;
+    meta.isInStation = [this](float s)
     {
-        glm::vec3 tmp = (std::abs(T0.y) < 0.9f ? glm::vec3(0, 1, 0) : glm::vec3 (1, 0, 0));
-        N0_raw = tmp - T0 * glm::dot(tmp, T0);
-    }
-    glm::vec3 N0 = glm::normalize(N0_raw);
-    glm::vec3 B0 = glm::normalize(glm::cross(T0, N0));
-    N0 = glm::normalize(glm::cross(B0, T0));
-    frames.emplace_back(Frame{s0.pos, T0, N0, B0, 0.f});
-
-    //rotacja wektora styczna względem wektora stycznego w punkcie poprzednim i wyliczenie norm,binorm
-    for (float s = ds; s < trackLength; s+=ds)
+        return this->isInStation(s);
+    };
+    meta.stationEdgeFadeWeight = [this](float s)
     {
-        auto sm = sampler.sampleAtS(s);
-        glm::vec3 T_prev = frames.back().T;
-        glm::vec3 T_curr = sm.tan;
+            return this->stationEdgeFadeWeight(s);
+    };
+    meta.manualRollAtS = [this, &spline](float s)
+    {
+        return this->manualRollAtS(spline, s);
+    };
 
-        glm::vec3 v = glm::cross(T_prev, T_curr);
-        float sin_phi = glm::length(v);
-        float cos_phi = std::clamp(glm::dot(T_prev, T_curr), -1.0f, 1.0f);
-
-        glm::vec3 N_prev = frames.back().N;
-        glm::vec3 N_curr, B_curr;
-
-        if (std::abs(sin_phi) >= kEps)
-        {
-            float phi = std::atan2(sin_phi, cos_phi);
-            glm::vec3 axis = v / sin_phi; //norma
-            glm::vec3 N_rot = rotateAroundAxis(N_prev, axis, phi);
-            B_curr = glm::normalize(glm::cross(T_curr, N_rot));
-            N_curr = glm::normalize(glm::cross(B_curr, T_curr));
-        }
-        else
-        {
-            //taki bezpiecznik gdyby jednak vec styczne były równoległe o przeciwnych zwrotach - czasem zjebie ramkę na spojeniach segmentów itp
-            if (cos_phi < 0.f) {
-                // T_curr ~ -T_prev
-                N_curr = -N_prev;
-                B_curr = -frames.back().B;
-            } else {
-                //niemal równoległe o zgodnym kierunku
-                N_curr = N_prev;
-                B_curr = frames.back().B;
-            }
-        }
-
-        const bool inStation = isInStation(s);
-        if (inStation || isNearStationEdge(s))
-        {
-            glm::vec3 Ng = globalUp - T_curr * glm::dot(globalUp, T_curr);
-            if (glm::length2(Ng) <= kEpsVertical) {
-                glm::vec3 fallback = (std::abs(T_curr.y) < 0.9f) ? glm::vec3(0,1,0) : glm::vec3(1,0,0);
-                Ng = fallback - T_curr * glm::dot(fallback, T_curr);
-            }
-            Ng = glm::normalize(Ng);
-            glm::vec3 Bg = glm::normalize(glm::cross(T_curr, Ng));
-            Ng = glm::normalize(glm::cross(Bg, T_curr));
-
-            if (inStation) {
-                N_curr = Ng;
-                B_curr = Bg;
-            } else {
-                float w = stationEdgeFadeWeight(s);
-                N_curr = glm::normalize(glm::mix(N_curr, Ng, w));
-                B_curr = glm::normalize(glm::cross(T_curr, N_curr));
-                N_curr = glm::normalize(glm::cross(B_curr, T_curr));
-            }
-        }
-
-        float roll = inStation ? 0.f : manualRollAtS(spline, s);
-        if (std::abs(roll) > kEps)
-        {
-            N_curr = rotateAroundAxis(N_curr, T_curr, roll);
-            B_curr = glm::normalize(glm::cross(T_curr, N_curr));
-            N_curr = glm::normalize(glm::cross(B_curr, T_curr));
-        }
-
-        frames.emplace_back(Frame{sm.pos, T_curr, N_curr, B_curr, s});
-    }
-    auto sl = sampler.sampleAtS(trackLength);
-    frames.emplace_back(Frame{
-        sl.pos, glm::normalize(sl.tan), frames.back().N, frames.back().B, trackLength});
-    return frames;
+    return physics::PTFBuilder::build(spline, ds, globalUp, meta);
 }
 
 /*--------------------------------------------TRACK::ApproxSForPoint--------------------------------------------------*/
@@ -365,11 +288,7 @@ void Track::rebuildMeta(const Spline& spline) {
 
 /*-------------------------------------------------TRACK::helpers...--------------------------------------------------*/
 
-glm::vec3 Track::rotateAroundAxis(const glm::vec3& v, const glm::vec3& axis, float angle)
-{
-    glm::quat q = glm::angleAxis(angle, axis);
-    return q * v;
-}
+
 
 /*-------------------------------------------------TRACK::OpenGL&GPU--------------------------------------------------*/
 
