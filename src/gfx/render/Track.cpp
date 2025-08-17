@@ -8,7 +8,9 @@
 #include <glm/glm.hpp>
 #include <limits>
 #include "Track.hpp"
-#include "physics/PTFBuilder.hpp"
+#include "common/TrackTypes.hpp"
+#include "physics/PathSampler.hpp"
+#include "physics/PTF.hpp"
 
 #include <iostream>
 #include <glm/gtx/quaternion.hpp>
@@ -53,7 +55,7 @@ std::vector<Frame> Track::buildFrames(const Spline& spline, float ds, glm::vec3 
         return this->manualRollAtS(spline, s);
     };
 
-    return physics::PTFBuilder::build(spline, ds, globalUp, meta);
+    return physics::PTF::build(spline, ds, globalUp, meta);
 }
 
 /*--------------------------------------------TRACK::ApproxSForPoint--------------------------------------------------*/

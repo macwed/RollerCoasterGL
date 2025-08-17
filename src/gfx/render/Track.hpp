@@ -8,53 +8,15 @@
 #include <glm/gtc/quaternion.hpp>
 #include "gfx/render/DrawableMixin.hpp"
 #include "math/Spline.hpp"
-#include "physics/PTFBuilder.hpp"
+#include "common/TrackTypes.hpp"
 
 constexpr float kEpsVertical = 1e-8f;
-
-enum class EdgeType {CatmullRom, Linear, Circular, Helix};
-
-struct NodeMeta
-{
-    bool stationStart = false;
-    bool stationEnd = false;
-    float stationLength = 0.f;
-    float userRoll = 0.f;
-};
-
-struct EdgeMeta
-{
-    EdgeType type {EdgeType::CatmullRom};
-};
-
-struct RollKey
-{
-    float s, roll;
-};
-
-
-
-struct Sample
-{
-    glm::vec3 pos, tan;
-};
-
-class PathSampler
-{
-public:
-    PathSampler(const Spline& spline, const std::vector<EdgeMeta>& e) : spline_(spline), edge_(e) {}
-
-    [[nodiscard]] Sample sampleAtS(float s) const;
-private:
-    const Spline& spline_;
-    const std::vector<EdgeMeta>& edge_;
-};
 
 class Track : public DrawableMixin<Track>{
 
 public:
     Track();
-    std::vector<Frame> buildFrames(const Spline& spline, float ds,
+    [[nodiscard]] std::vector<Frame> buildFrames(const Spline& spline, float ds,
                                        glm::vec3 globalUp = {0,1,0}) const;
     static float approximateSForPoint(const Spline& spline, const glm::vec3& p, float s0, float s1, float ds);
 
