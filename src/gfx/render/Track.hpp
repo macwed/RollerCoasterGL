@@ -16,9 +16,9 @@ class Track : public DrawableMixin<Track>{
 
 public:
     Track();
-    [[nodiscard]] std::vector<Frame> buildFrames(const Spline& spline, float ds,
-                                       glm::vec3 globalUp = {0,1,0}) const;
+
     static float approximateSForPoint(const Spline& spline, const glm::vec3& p, float s0, float s1, float ds);
+
 
     [[nodiscard]] float stationEdgeFadeWeight(float s) const;
     [[nodiscard]] bool isInStation(float s) const;
@@ -31,7 +31,6 @@ public:
     void syncMetaWithSpline(const Spline& spline);
     void rebuildMeta(const Spline& spline);
 
-    void buildMeshFromFrames();
     void uploadToGPU();
     void draw() const;
     void releaseGL();
@@ -46,9 +45,6 @@ private:
     unsigned vbo_, vao_, ibo_;
 
     const float feather = 0.75f;
-
-    static glm::vec3 rotateAroundAxis(const glm::vec3& v, const glm::vec3& axis, float angle);
-
 };
 
 

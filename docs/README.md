@@ -76,7 +76,9 @@ text
     ├─ docs/            # design docs, GIFs, architecture diagrams
     ├─ src/
     │   ├─ camera/      # camera
+    │   ├─ common/      # track types etc.
     │   ├─ core/        # window setup, timing, input
+    │   ├─ gameplay/    # 
     │   ├─ gfx/         # renderer, resources, shaders
     │   │   ├─ geometry # meshes
     │   │   ├─ gl

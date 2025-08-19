@@ -10,7 +10,6 @@
 #include "Track.hpp"
 #include "common/TrackTypes.hpp"
 #include "physics/PathSampler.hpp"
-#include "physics/PTF.hpp"
 
 #include <iostream>
 #include <glm/gtx/quaternion.hpp>
@@ -38,25 +37,6 @@ Sample PathSampler::sampleAtS(float s) const
 }
 /*-------------------------------------------------TRACK::TRACK-------------------------------------------------------*/
 Track::Track() : vbo_(0), vao_(0), ibo_(0) {}
-
-std::vector<Frame> Track::buildFrames(const Spline& spline, float ds, glm::vec3 globalUp) const
-{
-    physics::MetaCallbacks meta;
-    meta.isInStation = [this](float s)
-    {
-        return this->isInStation(s);
-    };
-    meta.stationEdgeFadeWeight = [this](float s)
-    {
-            return this->stationEdgeFadeWeight(s);
-    };
-    meta.manualRollAtS = [this, &spline](float s)
-    {
-        return this->manualRollAtS(spline, s);
-    };
-
-    return physics::PTF::build(spline, ds, globalUp, meta);
-}
 
 /*--------------------------------------------TRACK::ApproxSForPoint--------------------------------------------------*/
 
@@ -132,7 +112,7 @@ void Track::buildStationIntervals(const Spline& spline, float sampleStep)
 
     for (std::size_t i = 0; i < nodeMeta_.size(); ++i)
     {
-        float stationL = nodeMeta_[i].stationLength;
+        float stationL = nodeMeta_[i].length;
         if (nodeMeta_[i].stationStart && stationL > 0.f)
         {
             const glm::vec3 nodePos = spline.getNode(i).pos;

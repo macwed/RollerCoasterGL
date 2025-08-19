@@ -2,31 +2,36 @@
 // Created by maciej on 15.08.25.
 //
 
-#include "PTFBuilder.hpp"
 #include <algorithm>
-#include <glm/geometric.hpp>
+#include <glm/vec3.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include "PTF.hpp"
 
-using namespace physics;
+#include <iostream>
+#include <ostream>
 
-static inline glm::vec3 rotateAroundAxis(const glm::vec3& v, const glm::vec3& axis, float angle) {
-    return glm::angleAxis(angle, axis) * v;
-}
+constexpr float kEpsVertical = 1e-8f;
+//constexpr float kEps = 1e-6f;
 
-std::vector<Frame> PTFBuilder::build(const Spline& spline, float ds, glm::vec3 globalUp,
-                                                    const MetaCallbacks& meta)
+std::vector<Frame> PTF::build(const PathSampler& sampler, float ds, glm::vec3 globalUp,
+                                                    const MetaCallbacks& cb)
 {
-    const float trackLength = spline.totalLength();
+    if (ds <= 0.f)
+    {
+        std::cerr << "Warning: ds <= 0. Set ds to 0.05" << std::endl;
+        ds = 0.05f;
+    }
+    const float trackLength = sampler.totalLength();
     if (trackLength <= 0.f) return {};
 
     std::vector<Frame> frames;
     frames.reserve(static_cast<std::size_t>(trackLength / ds) + 2);
 
-    glm::vec3 P0 = spline.getPositionAtS(0.f);
-    glm::vec3 T0 = glm::normalize(spline.getTangentAtS(0.f));
+    glm::vec3 P0 = sampler.sampleAtS(0.f).pos;
+    glm::vec3 T0 = glm::normalize(sampler.sampleAtS(0.f).tan);
 
     glm::vec3 N0_raw = globalUp -  T0 * glm::dot(globalUp, T0);
-    if (glm::length2(N0_raw) < kEpsVertical) //zabezpieczenie gdyby jednak punkt startowy był (prawie) pionowy... pionowa stacja? cmon...
+    if (glm::length2(N0_raw) < kEpsVertical) //zabezpieczenie gdyby jednak punkt startowy był (prawie) pionowy? pionowa stacja? cmon
     {
         glm::vec3 tmp = (std::abs(T0.y) < 0.9f ? glm::vec3(0, 1, 0) : glm::vec3 (1, 0, 0));
         N0_raw = tmp - T0 * glm::dot(tmp, T0);
@@ -39,8 +44,9 @@ std::vector<Frame> PTFBuilder::build(const Spline& spline, float ds, glm::vec3 g
     //rotacja wektora styczna względem wektora stycznego w punkcie poprzednim i wyliczenie norm,binorm
     for (float s = ds; s < trackLength; s+=ds)
     {
-        glm::vec3 P = spline.getPositionAtS(s);
-        glm::vec3 T = spline.getTangentAtS(s);
+        const Sample smpl = sampler.sampleAtS(s);
+        glm::vec3 P = smpl.pos;
+        glm::vec3 T = glm::normalize(smpl.tan);
 
         glm::vec3 T_prev = frames.back().T;
         glm::vec3 N_prev = frames.back().N;
@@ -63,17 +69,18 @@ std::vector<Frame> PTFBuilder::build(const Spline& spline, float ds, glm::vec3 g
         else
         {
             //taki bezpiecznik gdyby jednak vec styczne były równoległe o przeciwnych zwrotach - czasem zjebie ramkę na spojeniach segmentów itp
-            if (cos_phi < 0.f) {
+            if (cos_phi < -0.9999f) {
                 // T_curr ~ -T_prev
-                N = -N_prev;
+                N = -N;
                 B = -B;
             }
         }
 
         bool inStation = false;
-        if (meta.isInStation) inStation = meta.isInStation(s);
+        if (cb.isInStation) inStation = cb.isInStation(s);
 
-        if (inStation || (meta.stationEdgeFadeWeight && meta.stationEdgeFadeWeight(s)) > 0.f)
+        float w = (!inStation && cb.stationEdgeFadeWeight) ? cb.stationEdgeFadeWeight(s) : 0.f;
+        if (inStation || w > 0.f)
         {
             glm::vec3 Ng = globalUp - T * glm::dot(globalUp, T);
             if (glm::length2(Ng) <= kEpsVertical) {
@@ -87,20 +94,17 @@ std::vector<Frame> PTFBuilder::build(const Spline& spline, float ds, glm::vec3 g
             if (inStation) {
                 N = Ng;
                 B = Bg;
-            } else
+            } else if (w > 0.f)
             {
-                float w = meta.stationEdgeFadeWeight ? meta.stationEdgeFadeWeight(s) : 0.f;
-                if (w > 0.f) {
-                    N = glm::normalize(glm::mix(N, Ng, w));
-                    B = glm::normalize(glm::cross(T, N));
-                    N = glm::normalize(glm::cross(B, T));
-                }
+                N = glm::normalize(glm::mix(N, Ng, w));
+                B = glm::normalize(glm::cross(T, N));
+                N = glm::normalize(glm::cross(B, T));
             }
         }
 
-        if (!inStation && meta.manualRollAtS)
+        if (!inStation && cb.manualRollAtS)
         {
-            float roll = meta.manualRollAtS(s);
+            float roll = cb.manualRollAtS(s);
             if (std::abs(roll) > kEps)
             {
                 N = rotateAroundAxis(N, T, roll);
@@ -110,8 +114,10 @@ std::vector<Frame> PTFBuilder::build(const Spline& spline, float ds, glm::vec3 g
         }
         frames.emplace_back(Frame{P, T, N, B, s});
     }
-    glm::vec3 Pend = spline.getPositionAtS(trackLength);
-    glm::vec3 Tend = glm::normalize(spline.getTangentAtS(trackLength));
+    //ost ramka s = trackLength
+    const Sample sl = sampler.sampleAtS(trackLength);
+    glm::vec3 Pend = sl.pos;
+    glm::vec3 Tend = glm::normalize(sl.tan);
     frames.emplace_back(Frame{
         Pend, Tend, frames.back().N, frames.back().B, trackLength});
     return frames;

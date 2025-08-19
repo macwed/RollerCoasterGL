@@ -9,32 +9,25 @@
 #include <functional>
 #include <glm/vec3.hpp>
 #include <vector>
-#include "math/Spline.hpp"
+#include "common/TrackTypes.hpp"
+#include "physics/PathSampler.hpp"
 
-struct Frame {
-    glm::vec3 pos, T, N, B;
-    float s;
-};
+    /*constexpr float kEps         = 1e-6f;
+    constexpr float kEpsVertical = 1e-8f;*/
 
-namespace physics {
-
-    constexpr float kEps        = 1e-6f;
-    constexpr float kEpsVertical= 1e-8f;
-
-    struct MetaCallbacks {
-        // Wszystkie funkcje są opcjonalne; sprawdzamy przed użyciem.
-        // Uwaga: manualRollAtS potrzebuje Spline tylko do wrapowania – przekażemy go przez capture.
+    struct MetaCallbacks
+    {
         std::function<bool(float)> isInStation;
         std::function<float(float)> stationEdgeFadeWeight;
         std::function<float(float)> manualRollAtS;
     };
 
-    class PTFBuilder {
-    public:
-        static std::vector<Frame>
-        build(const Spline& spline, float ds, glm::vec3 globalUp, const MetaCallbacks& meta);
+    namespace PTF
+    {
+        std::vector<Frame> build(const PathSampler& sampler, float ds, glm::vec3 globalUp, const MetaCallbacks& cb);
+        static inline glm::vec3 rotateAroundAxis(const glm::vec3& v, const glm::vec3& axis, float angle) {
+            return glm::angleAxis(angle, axis) * v;
+        }
     };
-
-}
 
 #endif
