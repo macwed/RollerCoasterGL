@@ -22,9 +22,9 @@
         std::function<float(float)> manualRollAtS;
     };
 
-    namespace PTF
+    namespace rc::physics
     {
-        std::vector<Frame> build(const PathSampler& sampler, float ds, glm::vec3 globalUp, const MetaCallbacks& cb);
+        std::vector<common::Frame> buildFrames(const PathSampler& sampler, float ds, glm::vec3 globalUp, const MetaCallbacks& cb);
         static inline glm::vec3 rotateAroundAxis(const glm::vec3& v, const glm::vec3& axis, float angle) {
             return glm::angleAxis(angle, axis) * v;
         }
