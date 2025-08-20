@@ -8,25 +8,26 @@
 #include <glm/gtc/quaternion.hpp>
 #include "gfx/render/DrawableMixin.hpp"
 
+namespace rc::gfx::render {
 constexpr float kEpsVertical = 1e-8f;
 
-class Track : public DrawableMixin<Track>{
-
+class Track : public DrawableMixin<Track> {
 public:
-    Track();
+  Track();
 
-    void uploadToGPU();
-    void draw() const;
-    void releaseGL();
+  void uploadToGPU();
+  void draw() const;
+  void releaseGL();
 
 private:
 
-    std::vector<glm::vec3> points_;
-    std::vector<std::uint32_t> indices_;
-    unsigned vbo_, vao_, ibo_;
+  std::vector<glm::vec3> points_;
+  std::vector<std::uint32_t> indices_;
+  unsigned vbo_, vao_, ibo_;
 
-    const float feather = 0.75f;
+  const float feather = 0.75f;
 };
+}
 
 
 

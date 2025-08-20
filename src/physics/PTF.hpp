@@ -3,8 +3,8 @@
 //
 
 // PTFBuilder.hpp
-#ifndef PTFBUILDER_HPP
-#define PTFBUILDER_HPP
+#ifndef PTF_HPP
+#define PTF_HPP
 
 #include <functional>
 #include <glm/vec3.hpp>
@@ -12,22 +12,20 @@
 #include "common/TrackTypes.hpp"
 #include "physics/PathSampler.hpp"
 
-    /*constexpr float kEps         = 1e-6f;
-    constexpr float kEpsVertical = 1e-8f;*/
+/*constexpr float kEps         = 1e-6f;
+constexpr float kEpsVertical = 1e-8f;*/
 
-    struct MetaCallbacks
-    {
-        std::function<bool(float)> isInStation;
-        std::function<float(float)> stationEdgeFadeWeight;
-        std::function<float(float)> manualRollAtS;
-    };
+namespace rc::physics {
+struct MetaCallbacks {
+  std::function<bool(float)> isInStation;
+  std::function<float(float)> stationEdgeFadeWeight;
+  std::function<float(float)> manualRollAtS;
+};
 
-    namespace rc::physics
-    {
-        std::vector<common::Frame> buildFrames(const PathSampler& sampler, float ds, glm::vec3 globalUp, const MetaCallbacks& cb);
-        static inline glm::vec3 rotateAroundAxis(const glm::vec3& v, const glm::vec3& axis, float angle) {
-            return glm::angleAxis(angle, axis) * v;
-        }
-    };
+std::vector<common::Frame> buildFrames(const PathSampler& sampler, float ds, glm::vec3 globalUp, const MetaCallbacks& cb);
+static inline glm::vec3 rotateAroundAxis(const glm::vec3& v, const glm::vec3& axis, float angle) {
+  return glm::angleAxis(angle, axis) * v;
+}
+}
 
 #endif

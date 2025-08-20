@@ -15,6 +15,10 @@
 #include "math/Spline.hpp"
 
 namespace rc::gameplay {
+
+constexpr float eps = 1e-4f;
+constexpr float mergeEps = 1e-4f;
+
 static inline float clamp01 (float x) { return std::max(0.0f, std::min(1.0f, x)); }
 
 float TrackComponent::approximateSForPoint_(const math::Spline& spline, const glm::vec3& p, float s0, float s1,
@@ -95,7 +99,6 @@ void TrackComponent::buildStationIntervals_()
   //sort i merge
   std::ranges::sort(stations_);
   std::vector<std::pair<float, float>> merged;
-  constexpr float eps = 1e-4f;
   for (auto [a, b] : stations_)
   {
     if (merged.empty() || a > merged.back().second + eps) merged.emplace_back(a, b);
@@ -120,7 +123,6 @@ void TrackComponent::rebuildRollKeys_()
                     [](const common::RollKey& a, const common::RollKey& b){ return a.s < b.s; });
 
   std::vector<common::RollKey> merged;
-  constexpr float mergeEps = 1e-4f;
   for (const auto& k : rollKeys_)
   {
     if (!merged.empty() && std::abs(k.s - merged.back().s) < mergeEps)
@@ -133,7 +135,7 @@ void TrackComponent::buildFrames_()
 {
   physics::PathSampler sampler(spline_, edgeMeta_);
 
-  MetaCallbacks cb;
+  physics::MetaCallbacks cb;
   cb.isInStation              = [this](float s) {return this -> isInStation(s);};
   cb.stationEdgeFadeWeight    = [this](float s) {return this -> stationEdgeFadeWeight(s);};
   cb.manualRollAtS            = [this](float s) {return this -> manualRollAtS(s);};
@@ -234,7 +236,9 @@ glm::vec3 TrackComponent::positionAtS(float s) const
 
 glm::vec3 TrackComponent::tangentAtS(float s) const
 {
-  return glm::normalize(spline_.getTangentAtS(s));
+  glm::vec3 tan = spline_.getTangentAtS(s);
+  tan = (glm::length2(tan) > eps) ? glm::normalize(tan) : glm::vec3(1.f, 0.f, 0.f);
+  return tan;
 }
 
 common::Frame TrackComponent::frameAtS(float s) const
