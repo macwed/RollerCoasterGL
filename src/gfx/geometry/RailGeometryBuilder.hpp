@@ -4,10 +4,10 @@
 
 #ifndef RAILGEOMETRYBUILDER_HPP
 #define RAILGEOMETRYBUILDER_HPP
+#include <glm/vec2.hpp>
 #include <span>
-
+#include <vector>
 #include "common/TrackTypes.hpp"
-#include "gameplay/TrackComponent.hpp"
 
 namespace rc::gfx::geometry {
 struct RailParams {
@@ -17,16 +17,22 @@ struct RailParams {
   bool closeLoop = false;
 };
 
+struct Vertex {glm::vec3 pos, normal; glm::vec2 uv;};
+
 class RailGeometryBuilder {
   public:
-  RailGeometryBuilder(const gameplay::TrackComponent& track);
-  void build(const RailParams& params);
+  explicit RailGeometryBuilder(std::span<const common::Frame> frames) : frames_(frames) {};
+
+  void build(const RailParams& p);
+
+  std::span<const Vertex> vertices()    const { return vertices_; }
+  std::span<const uint32_t>  indices()  const { return indices_;  }
 private:
   std::span<const common::Frame> frames_;
-  std::vector<glm::vec3> vertices_;
+  std::vector<Vertex> vertices_; //(pos, normal, uv)
   std::vector<uint32_t> indices_;
-  std::vector<glm::vec3> rings_(const glm::vec3& centerPos,
-    const glm::vec3& axis, const glm::vec3& B, const RailParams& params);
+  void rings_(uint32_t idx, const glm::vec3& centerPos,
+    const glm::vec3& N, const glm::vec3& B, const RailParams& params);
 };
 }
 
