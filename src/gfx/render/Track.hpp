@@ -4,14 +4,13 @@
 
 #ifndef TRACK_HPP
 #define TRACK_HPP
+#include <glm/vec3.hpp>
+#include <span>
 #include <vector>
-#include <glm/gtc/quaternion.hpp>
+
 #include "gfx/render/DrawableMixin.hpp"
-#include "gfx/geometry/RailGeometryBuilder.hpp"
 
 namespace rc::gfx::render {
-constexpr float kEpsVertical = 1e-8f;
-
 class Track : public DrawableMixin<Track> {
 public:
   Track();
@@ -28,7 +27,7 @@ private:
   std::vector<std::uint32_t> indices_;
   unsigned vbo_, vao_, ibo_;
 
-  const float feather = 0.75f;
+  // no extra state yet; normals/uv to be added with future shaders
 };
 }
 

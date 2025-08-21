@@ -4,7 +4,7 @@
 #include "PathSampler.hpp"
 
 #include <algorithm>
-#include <glm/ext/quaternion_geometric.hpp>
+#include <cmath>
 #include <glm/gtx/norm.hpp>
 #include "math/Spline.hpp"
 

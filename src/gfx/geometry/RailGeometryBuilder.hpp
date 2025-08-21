@@ -14,7 +14,7 @@
 namespace rc::gfx::geometry {
 constexpr float kEps = 1e-6f;
 constexpr auto twoPi = glm::two_pi<float>();
-const float closeEps2 = 1e-6f;
+constexpr float closeEps2 = 1e-6f;
 
 struct RailParams {
   float gauge = 1.1f;        // odstęp szyn od osi czyli krzywej CR
@@ -32,8 +32,8 @@ class RailGeometryBuilder {
 
   bool build(const RailParams& p);
 
-  std::span<const Vertex> vertices()    const { return vertices_; }
-  std::span<const uint32_t>  indices()  const { return indices_;  }
+  [[nodiscard]] std::span<const Vertex> vertices()    const { return vertices_; }
+  [[nodiscard]] std::span<const uint32_t>  indices()  const { return indices_;  }
 private:
   std::span<const common::Frame> frames_;
   std::vector<Vertex> vertices_; //(pos, normal, uv)

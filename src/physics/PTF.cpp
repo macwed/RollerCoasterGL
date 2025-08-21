@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <glm/vec3.hpp>
-#include <glm/gtx/quaternion.hpp>
 #include "PTF.hpp"
 
 #include <iostream>

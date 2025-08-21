@@ -159,9 +159,7 @@ int main() {
   glViewport(0, 0, cfg.windowWidth, cfg.windowHeight);
 
   std::string vertexSource = loadShaderSource("assets/shaders/terrain.vert");
-  std::cout << "Vert: " << vertexSource << std::endl;
   std::string fragmentSource = loadShaderSource("assets/shaders/terrain.frag");
-  std::cout << "Frag: " <<  fragmentSource << std::endl;
 
   GLuint shaderProgram = createShaderProgram(vertexSource, fragmentSource);
 

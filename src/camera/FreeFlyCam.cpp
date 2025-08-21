@@ -9,7 +9,6 @@
 #include <glm/trigonometric.hpp>
 //#include <glm/detail/func_trigonometric.inl>
 #include <glm/ext/matrix_transform.hpp>
-#include <glm/ext/quaternion_geometric.hpp>
 
 FreeFlyCam::FreeFlyCam(glm::vec3 startPos)
     : position(startPos),

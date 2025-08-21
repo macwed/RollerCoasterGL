@@ -3,8 +3,10 @@
 //
 
 #include <vector>
+#include <algorithm>
+#include <cmath>
+#include <limits>
 #include <glad.h>
-#include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include "math/Array_2D.hpp"
 #include "SimplexNoise.hpp"
@@ -41,7 +43,7 @@ void Terrain::generate(float scale, float frequency, int octaves, float lacunari
 
     for (int y = 0; y < height_; y++) {
         for (int x = 0; x < width_; x++) {
-            vertices_.emplace_back(x, pow(heightmap_(x, y), exponent) * height_scale, y);
+            vertices_.emplace_back(x, std::pow(heightmap_(x, y), exponent) * height_scale, y);
         }
     }
     for (int y = 0; y < height_ - 1; y++) {

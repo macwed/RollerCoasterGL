@@ -2,13 +2,12 @@
 // Created by maciej on 02.08.25.
 //
 
-#include <glad.h>
-#include <glm/glm.hpp>
 #include "Track.hpp"
-#include "physics/PathSampler.hpp"
-#include "gfx/geometry/RailGeometryBuilder.hpp"
 
-#include <glm/gtx/quaternion.hpp>
+#include <glad.h>
+
+#include <glm/glm.hpp>
+#include <span>
 
 namespace rc::gfx::render {
 /*-------------------------------------------------TRACK::TRACK-------------------------------------------------------*/
@@ -47,12 +46,9 @@ void Track::uploadToGPU()
       points_.data(),
       GL_STATIC_DRAW);
 
-  glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(glm::vec3),(void*)offsetof(geometry::Vertex,pos));
+  // Position-only layout: tightly packed glm::vec3
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), nullptr);
   glEnableVertexAttribArray(0);
-  /*glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,sizeof(geometry::Vertex),(void*)offsetof(geometry::Vertex,normal));
-  glEnableVertexAttribArray(1);
-  glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,sizeof(geometry::Vertex),(void*)offsetof(geometry::Vertex,uv));
-  glEnableVertexAttribArray(2);*/
 
 
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_);

@@ -3,13 +3,9 @@
 //
 #include "RailGeometryBuilder.hpp"
 
-#include <functional>
-#include <glm/ext/quaternion_geometric.hpp>
+#include <cassert>
 #include <glm/gtx/norm.hpp>
 #include <glm/trigonometric.hpp>
-#include <iostream>
-#include <span>
-#include <vector>
 
 namespace rc::gfx::geometry {
 bool RailGeometryBuilder::build(const RailParams& p) {
@@ -34,7 +30,7 @@ bool RailGeometryBuilder::build(const RailParams& p) {
   };
 
   const uint32_t ring  = p.ringSides + 1u; // +1 bo duplikujemy pierwszy profil, by zamknąć okrąg
-  const uint32_t rails = 2u;
+  constexpr uint32_t rails = 2u;
 
   const uint32_t vertsTotal = ringsTotal * ring * rails;
   const uint32_t quadsPerRailPerSeg = ring - 1u;

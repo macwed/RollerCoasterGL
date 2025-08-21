@@ -4,6 +4,7 @@
 
 #ifndef APPCONTEXT_HPP
 #define APPCONTEXT_HPP
+#include <glad.h>
 #include "../camera/FreeFlyCam.hpp"
 #include "../terrain/Terrain.hpp"
 

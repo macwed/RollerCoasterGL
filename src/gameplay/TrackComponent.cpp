@@ -7,7 +7,6 @@
 #include <limits>
 #include <cmath>
 #include <glm/geometric.hpp>
-#include <glm/gtx/quaternion.hpp>
 
 #include "physics/PathSampler.hpp"
 #include "physics/PTF.hpp"
@@ -271,7 +270,7 @@ void TrackComponent::setClosed(bool v) {
     auto P0 = spline_.getNode(0).pos;
     auto Pn = spline_.getNode(spline_.nodeCount()-1).pos;
     float d = glm::length(Pn - P0);
-    const float snap = 0.25f;
+    constexpr float snap = 0.25f;
     const float stitch = 4.0f;
     if (d < snap) {
       spline_.moveNode(spline_.nodeCount()-1, P0);

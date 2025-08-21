@@ -15,7 +15,7 @@ public:
   math::Spline& spline() { return spline_; }
   [[nodiscard]] const math::Spline& spline() const { return spline_; }
   std::vector<common::EdgeMeta>& edges() { return edgeMeta_; }
-  const std::vector<common::Frame>& frames() const { return frames_; }
+  [[nodiscard]] const std::vector<common::Frame>& frames() const { return frames_; }
 
   void markDirty() { dirtySpline_ = dirtyMeta_ = dirtyFrames_ = true; }
   void rebuild();
@@ -30,7 +30,7 @@ public:
   void setDs(float v) { ds_ = v; dirtyFrames_ = true;}
   void setUp(glm::vec3 up) { up_ = up; dirtyFrames_ = true;}
   void setClosed(bool v);
-  bool isClosed() const { return spline_.isClosed(); }
+  [[nodiscard]] bool isClosed() const { return spline_.isClosed(); }
 
 private:
   math::Spline spline_;

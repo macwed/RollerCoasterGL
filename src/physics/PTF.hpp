@@ -8,12 +8,10 @@
 
 #include <functional>
 #include <glm/vec3.hpp>
+#include <glm/gtx/quaternion.hpp>
 #include <vector>
 #include "common/TrackTypes.hpp"
 #include "physics/PathSampler.hpp"
-
-/*constexpr float kEps         = 1e-6f;
-constexpr float kEpsVertical = 1e-8f;*/
 
 namespace rc::physics {
 struct MetaCallbacks {
