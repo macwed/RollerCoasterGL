@@ -34,11 +34,16 @@ void Spline::removeNode(std::size_t i)
 
 bool Spline::isNodeOnCurve(std::size_t i) const
 {
+  if (closed_) return (nodes_.size() >= 4);
   return (i > 0 && i + 1 < nodes_.size());
 }
 
 float Spline::sAtNode(std::size_t i) const
 {
+  if (closed_) {
+    if (segmentCount() == 0) return 0.f;
+    return segPrefix_[i % segPrefix_.size()]; // początek segmentu i
+  }
   if (!isNodeOnCurve(i)) throw std::out_of_range("node not on curve");
   if (i == 1) return 0.f;
   std::size_t segEnd = i - 1;
@@ -47,12 +52,14 @@ float Spline::sAtNode(std::size_t i) const
 
 std::size_t Spline::segmentIndexEndingAtNode(std::size_t i) const
 {
+  if (closed_) return static_cast<std::size_t>((i + nodes_.size() - 1) % nodes_.size());
   if (!isNodeOnCurve(i)) throw std::out_of_range("node not on curve");
   return i - 1;
 }
 
 std::size_t Spline::segmentIndexStartingAtNode(std::size_t i) const
 {
+  if (closed_) return static_cast<std::size_t>(i % nodes_.size());
   if (!isNodeOnCurve(i)) throw std::out_of_range("node not on curve");
   return i;
 }
@@ -60,6 +67,7 @@ std::size_t Spline::segmentIndexStartingAtNode(std::size_t i) const
 
 std::size_t Spline::segmentCount() const
 {
+  if (closed_) return (nodes_.size() >= 4) ? nodes_.size() : 0;
   return nodes_.size() >= 4 ? nodes_.size() - 3 : 0;
 }
 
@@ -71,14 +79,7 @@ glm::vec3 Spline::getPosition(std::size_t segmentIndex, float t) const
     throw std::out_of_range("Spline::getPosition no segments");
   }
 
-  const glm::vec3& P0 = nodes_[segmentIndex + 0].pos;
-  const glm::vec3& P1 = nodes_[segmentIndex + 1].pos;
-  const glm::vec3& P2 = nodes_[segmentIndex + 2].pos;
-  const glm::vec3& P3 = nodes_[segmentIndex + 3].pos;
-
-  t = std::clamp(t, 0.0f, 1.0f);
-  float t2 = t * t;
-  float t3 = t2 * t;
+  const auto n = nodes_.size();
 
   /*Catmull-Rom równanie
   *C(t) = 0.5 * [(2P1) + (-P0 + P2)t + (2P0-5P1+4P2-P3)t^2 + (-P0+3P1-3P2+P3)t^3]
@@ -86,12 +87,39 @@ glm::vec3 Spline::getPosition(std::size_t segmentIndex, float t) const
   *t - parametr [0,1] w obrębie segmentu między P1 i P2
   */
 
-  return 0.5f * (
-      (2.0f * P1) +
-      (-P0 + P2) * t +
-      (2.0f * P0 - 5.0f * P1 + 4.0f * P2 - P3) * t2 +
-      (-P0 + 3.0f * P1 - 3.0f * P2 + P3) * t3
-      );
+  if (closed_) {
+    const glm::vec3& P0 = nodes_[wrap(segmentIndex - 1, n)].pos;
+    const glm::vec3& P1 = nodes_[wrap(segmentIndex + 0, n)].pos;
+    const glm::vec3& P2 = nodes_[wrap(segmentIndex + 1, n)].pos;
+    const glm::vec3& P3 = nodes_[wrap(segmentIndex + 2, n)].pos;
+
+    t = std::clamp(t, 0.0f, 1.0f);
+    float t2 = t * t;
+    float t3 = t2 * t;
+
+    return 0.5f * (
+        (2.0f * P1) +
+        (-P0 + P2) * t +
+        (2.0f * P0 - 5.0f * P1 + 4.0f * P2 - P3) * t2 +
+        (-P0 + 3.0f * P1 - 3.0f * P2 + P3) * t3
+        );
+  } else {
+    const glm::vec3& P0 = nodes_[segmentIndex + 0].pos;
+    const glm::vec3& P1 = nodes_[segmentIndex + 1].pos;
+    const glm::vec3& P2 = nodes_[segmentIndex + 2].pos;
+    const glm::vec3& P3 = nodes_[segmentIndex + 3].pos;
+
+    t = std::clamp(t, 0.0f, 1.0f);
+    float t2 = t * t;
+    float t3 = t2 * t;
+
+    return 0.5f * (
+        (2.0f * P1) +
+        (-P0 + P2) * t +
+        (2.0f * P0 - 5.0f * P1 + 4.0f * P2 - P3) * t2 +
+        (-P0 + 3.0f * P1 - 3.0f * P2 + P3) * t3
+        );
+  }
 }
 
 glm::vec3 Spline::getDerivative(std::size_t segmentIndex, float t) const
@@ -101,21 +129,37 @@ glm::vec3 Spline::getDerivative(std::size_t segmentIndex, float t) const
     throw std::out_of_range("Spline::getDerivative no segments");
   }
   assert(segmentIndex < segmentCount());
+  const auto n = nodes_.size();
+  if (closed_) {
+    const glm::vec3& P0 = nodes_[wrap(segmentIndex - 1, n)].pos;
+    const glm::vec3& P1 = nodes_[wrap(segmentIndex + 0, n)].pos;
+    const glm::vec3& P2 = nodes_[wrap(segmentIndex + 1, n)].pos;
+    const glm::vec3& P3 = nodes_[wrap(segmentIndex + 2, n)].pos;
 
-  const glm::vec3& P0 = nodes_[segmentIndex + 0].pos;
-  const glm::vec3& P1 = nodes_[segmentIndex + 1].pos;
-  const glm::vec3& P2 = nodes_[segmentIndex + 2].pos;
-  const glm::vec3& P3 = nodes_[segmentIndex + 3].pos;
+    t = std::clamp(t, 0.0f, 1.0f);
+    float t2 = t * t;
 
-  t = std::clamp(t, 0.0f, 1.0f);
-  float t2 = t * t;
+    return 0.5f * (
+        (-P0 + P2) +
+        (2.f * P0 - 5.0f * P1 + 4.0f * P2 - P3) * (2.0f * t) +
+        (-P0 + 3.0f * P1 - 3.0f * P2 + P3) * (3.0f * t2)
+        );
+  } else {
+    const glm::vec3& P0 = nodes_[segmentIndex + 0].pos;
+    const glm::vec3& P1 = nodes_[segmentIndex + 1].pos;
+    const glm::vec3& P2 = nodes_[segmentIndex + 2].pos;
+    const glm::vec3& P3 = nodes_[segmentIndex + 3].pos;
 
-  //pochodna po t
-  return 0.5f * (
-      (-P0 + P2) +
-      (2.f * P0 - 5.0f * P1 + 4.0f * P2 - P3) * (2.0f * t) +
-      (-P0 + 3.0f * P1 - 3.0f * P2 + P3) * (3.0f * t2)
-      );
+    t = std::clamp(t, 0.0f, 1.0f);
+    float t2 = t * t;
+
+    //pochodna po t
+    return 0.5f * (
+        (-P0 + P2) +
+        (2.f * P0 - 5.0f * P1 + 4.0f * P2 - P3) * (2.0f * t) +
+        (-P0 + 3.0f * P1 - 3.0f * P2 + P3) * (3.0f * t2)
+        );
+  }
 }
 
 glm::vec3 Spline::getTangent(std::size_t segmentIndex, float t) const
@@ -132,20 +176,28 @@ glm::vec3 Spline::getTangent(std::size_t segmentIndex, float t) const
   glm::vec3 derivative = getDerivative(segmentIndex, t);
   float len = glm::length(derivative);
   if (len >= kEps) return derivative / len;
+  const auto n = nodes_.size();
 
-  const glm::vec3& P1 = nodes_[segmentIndex + 1].pos;
-  const glm::vec3& P2 = nodes_[segmentIndex + 2].pos;
-
-  glm::vec3 seg = P2 - P1;
+  const glm::vec3* P1 = &nodes_[segmentIndex + 1].pos;
+  const glm::vec3* P2 = &nodes_[segmentIndex + 2].pos;
+  if (closed_) {
+    P1 = &nodes_[wrap(segmentIndex + 0, n)].pos;
+    P2 = &nodes_[wrap(segmentIndex + 1, n)].pos;
+  }
+  glm::vec3 seg = *P2 - *P1;
   float segLen = glm::length(seg);
   if (segLen >= kEps)
   {
     return seg / segLen;
   }
 
-  const glm::vec3& P0 = nodes_[segmentIndex + 0].pos;
-  const glm::vec3& P3 = nodes_[segmentIndex + 3].pos;
-  glm::vec3 wide = P3 - P0;
+  const glm::vec3* P0 = &nodes_[segmentIndex + 0].pos;
+  const glm::vec3* P3 = &nodes_[segmentIndex + 3].pos;
+  if (closed_) {
+    P0 = &nodes_[wrap(segmentIndex - 1, n)].pos;
+    P3 = &nodes_[wrap(segmentIndex + 2, n)].pos;
+  }
+  glm::vec3 wide = *P3 - *P0;
   float wideLen = glm::length(wide);
   if (wideLen >= kEps)
   {
@@ -215,15 +267,15 @@ bool Spline::isClosed() const
 
 std::pair<std::size_t, float> Spline::locateSegmentByS(float s) const
 {
+  const float L = totalLength();
   if (segmentCount() == 0) throw std::out_of_range("Spline::locateSegmentByS no segments");
-  if (totalLength_ <= 0) return std::make_pair(0, 0.f);
+  if (L <= 0) return std::make_pair(0, 0.f);
   if (isClosed())
   {
-    s = std::fmod(s, totalLength_);
-    if (s < 0.f) s += totalLength_;
+    s = std::fmod(std::fmod(s, L) + L, L);
   } else
   {
-    s = std::clamp(s, 0.f, totalLength_);
+    s = std::clamp(s, 0.f, L);
   }
   auto it = std::ranges::upper_bound(segPrefix_, s);
   if (it == segPrefix_.begin()) //s == 0

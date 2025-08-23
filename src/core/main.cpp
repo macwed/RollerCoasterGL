@@ -191,7 +191,13 @@ int main() {
   s.addNode({{115.f, 30.f,  0.f}});
   s.addNode({{118.f, 50.5f, 112.f}});
   s.addNode({{ 622.f, 70.5f,618.f}});
-  s.addNode({{ 725.f, 30.f,  0.f}});
+  s.addNode({{680.f, 120.f,  460.f}});
+  s.addNode({{680.f, 90.f,  250.f}});
+  s.addNode({{ 450.f, 50.f,  112.f}});
+  s.addNode({{320.f, 35.f,  90.f}});
+  s.addNode({{118.f, 30.f, 90.f}});
+  s.addNode({{ 90.f, 30.f,40.f}});
+  s.addNode({{ 60.f, 30.f,  10.f}});
   s.setClosed(true);
 
   trackComp.setDs(0.1f);
@@ -201,7 +207,8 @@ int main() {
   const auto& frames = trackComp.frames();
 
   rc::gfx::geometry::RailGeometryBuilder rgb(frames);
-  rc::gfx::geometry::RailParams params{1.435f, 0.12f, 16, true, 0.25f};
+  rc::gfx::geometry::RailParams params{1.435f, 0.12f, 16, trackComp.isClosed(), 0.25f};
+
   if (!rgb.build(params)) {
     std::cerr << "Failed to build geometry!" << std::endl;
   }

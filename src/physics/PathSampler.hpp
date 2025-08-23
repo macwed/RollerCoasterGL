@@ -20,7 +20,9 @@ public:
   PathSampler(const math::Spline& spline, const std::vector<common::EdgeMeta>& e);
 
   [[nodiscard]] Sample sampleAtS(float s) const;
-  float totalLength() const { return spline_.totalLength(); }
+  [[nodiscard]] float totalLength() const { return spline_.totalLength(); }
+  [[nodiscard]] bool isClosed() const { return spline_.isClosed(); }
+
 private:
   const math::Spline& spline_;
   const std::vector<common::EdgeMeta>& edges_;

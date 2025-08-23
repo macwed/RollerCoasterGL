@@ -29,6 +29,8 @@ public:
 
   void setDs(float v) { ds_ = v; dirtyFrames_ = true;}
   void setUp(glm::vec3 up) { up_ = up; dirtyFrames_ = true;}
+  void setClosed(bool v) { spline_.setClosed(v); markDirty(); }
+  bool isClosed() const { return spline_.isClosed(); }
 
 private:
   math::Spline spline_;

@@ -20,6 +20,11 @@ inline bool finite3(const glm::vec3& v)
 PathSampler::PathSampler(const math::Spline& spline, const std::vector<common::EdgeMeta>& e)
                             : spline_(spline), edges_(e) {}
 Sample PathSampler::sampleAtS(float s) const {
+  const float L = spline_.totalLength();
+  s = spline_.isClosed()
+        ? std::fmod(std::fmod(s, L) + L, L)
+        : std::clamp(s, 0.f, L);
+
   if (spline_.segmentCount() == 0)
   {
     glm::vec3 p = (spline_.nodeCount() ? spline_.getNode(0).pos : glm::vec3(0.0f));
@@ -30,8 +35,16 @@ Sample PathSampler::sampleAtS(float s) const {
 
   if (seg < edges_.size() && edges_[seg].type == common::EdgeType::Linear)
   {
-    glm::vec3 P1 = spline_.getNode(seg + 1).pos;
-    glm::vec3 P2 = spline_.getNode(seg + 2).pos;
+    glm::vec3 P1;
+    glm::vec3 P2;
+    if (spline_.isClosed()) {
+      auto n = spline_.nodeCount();
+      P1 = spline_.getNode((seg + 1) % n).pos;
+      P2 = spline_.getNode((seg + 2) % n).pos;
+    } else {
+      P1 = spline_.getNode(seg + 1).pos;
+      P2 = spline_.getNode(seg + 2).pos;
+    }
 
     const float segLen = spline_.arcLengthAtSegmentEnd(seg) - spline_.arcLengthAtSegmentStart(seg);
     const float u = segLen > kEps ? std::clamp(sLocal / segLen, 0.0f, 1.0f) : 0.0f;

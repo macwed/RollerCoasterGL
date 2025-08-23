@@ -14,6 +14,8 @@
 namespace rc::gfx::geometry {
 constexpr float kEps = 1e-6f;
 constexpr auto twoPi = glm::two_pi<float>();
+const float closeEps2 = 1e-6f;
+
 struct RailParams {
   float gauge = 1.1f;        // odstęp szyn od osi czyli krzywej CR
   float railRadius = 0.12f; // średnica szyny
@@ -36,8 +38,10 @@ private:
   std::span<const common::Frame> frames_;
   std::vector<Vertex> vertices_; //(pos, normal, uv)
   std::vector<uint32_t> indices_;
-  void rings_(uint32_t idx, const glm::vec3& centerPos,
-    const glm::vec3& N, const glm::vec3& B, const RailParams& params);
+  void rings_(uint32_t frameIdx, const glm::vec3& centerPos,
+              const glm::vec3& N, const glm::vec3& B,
+              const RailParams& params, uint32_t ringsTotal,
+              bool closedEff);
 };
 }
 

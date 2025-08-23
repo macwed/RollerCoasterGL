@@ -43,7 +43,9 @@ std::vector<common::Frame> buildFrames(const PathSampler& sampler, float ds, glm
   frames.emplace_back(common::Frame{P0, T0, N0, B0, 0.f});
 
   //rotacja wektora styczna względem wektora stycznego w punkcie poprzednim i wyliczenie norm,binorm
-  for (float s = ds; s < trackLength; s+=ds)
+  const bool closed = sampler.isClosed();
+  auto loopCond = closed ? trackLength : (trackLength + 0.5f * ds);
+  for (float s = ds; s < loopCond; s+=ds)
   {
     const Sample smpl = sampler.sampleAtS(s);
     glm::vec3 P = smpl.pos;
@@ -117,10 +119,31 @@ std::vector<common::Frame> buildFrames(const PathSampler& sampler, float ds, glm
   }
   //ost ramka s = trackLength
   const Sample sl = sampler.sampleAtS(trackLength);
-  glm::vec3 Pend = sl.pos;
-  glm::vec3 Tend = glm::normalize(sl.tan);
-  frames.emplace_back(common::Frame{
-      Pend, Tend, frames.back().N, frames.back().B, trackLength});
+  glm::vec3 P_end = sl.pos;
+  glm::vec3 T_end = glm::normalize(sl.tan);
+
+  glm::vec3 T_prev = frames.back().T;
+  glm::vec3 N_end  = frames.back().N;
+  glm::vec3 B_end  = frames.back().B;
+
+  glm::vec3 v = glm::cross(T_prev, T_end);
+  float sin_phi = glm::length(v);
+  float cos_phi = std::clamp(glm::dot(T_prev, T_end), -1.0f, 1.0f);
+  if (sin_phi >= kEps) {
+    float phi = std::atan2(sin_phi, cos_phi);
+    glm::vec3 axis = v / sin_phi;
+    N_end = rotateAroundAxis(N_end, axis, phi);
+    B_end = glm::normalize(glm::cross(T_end, N_end));
+    N_end = glm::normalize(glm::cross(B_end, T_end));
+  } else if (cos_phi < -0.9999f) {
+    N_end = -N_end; B_end = -B_end;
+  }
+
+  frames.emplace_back(common::Frame{ P_end, T_end, N_end, B_end, trackLength });
+  if (closed) {
+    frames.back().N = frames.front().N;
+    frames.back().B = frames.front().B;
+  }
   return frames;
 }
 }
