@@ -6,11 +6,14 @@
 #include <glm/glm.hpp>
 #include "Track.hpp"
 #include "physics/PathSampler.hpp"
+#include "gfx/geometry/RailGeometryBuilder.hpp"
+
 #include <glm/gtx/quaternion.hpp>
 
 namespace rc::gfx::render {
 /*-------------------------------------------------TRACK::TRACK-------------------------------------------------------*/
 Track::Track() : vbo_(0), vao_(0), ibo_(0) {}
+ Track::~Track() { releaseGL(); }
 
 /*-------------------------------------------------TRACK::OpenGL&GPU--------------------------------------------------*/
 
@@ -19,6 +22,11 @@ void Track::releaseGL()
   if (vao_) {glDeleteVertexArrays(1, &vao_); vao_ = 0;}
   if (vbo_) {glDeleteBuffers(1, &vbo_); vbo_ = 0;}
   if (ibo_) {glDeleteBuffers(1, &ibo_); ibo_ = 0;}
+}
+
+void Track::setMesh(std::span<const glm::vec3> vertices, std::span<const uint32_t> indices) {
+  points_.assign(vertices.begin(), vertices.end());
+  indices_.assign(indices.begin(), indices.end());
 }
 
 void Track::uploadToGPU()
@@ -39,8 +47,13 @@ void Track::uploadToGPU()
       points_.data(),
       GL_STATIC_DRAW);
 
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), nullptr);
+  glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(glm::vec3),(void*)offsetof(geometry::Vertex,pos));
   glEnableVertexAttribArray(0);
+  /*glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,sizeof(geometry::Vertex),(void*)offsetof(geometry::Vertex,normal));
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,sizeof(geometry::Vertex),(void*)offsetof(geometry::Vertex,uv));
+  glEnableVertexAttribArray(2);*/
+
 
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER,
@@ -58,5 +71,6 @@ void Track::draw() const
       static_cast<GLsizei>(indices_.size()),
       GL_UNSIGNED_INT,
       nullptr);
+  glBindVertexArray(0);
 }
 }

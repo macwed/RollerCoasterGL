@@ -7,6 +7,7 @@
 #include <vector>
 #include <glm/gtc/quaternion.hpp>
 #include "gfx/render/DrawableMixin.hpp"
+#include "gfx/geometry/RailGeometryBuilder.hpp"
 
 namespace rc::gfx::render {
 constexpr float kEpsVertical = 1e-8f;
@@ -14,7 +15,9 @@ constexpr float kEpsVertical = 1e-8f;
 class Track : public DrawableMixin<Track> {
 public:
   Track();
+  ~Track();
 
+  void setMesh(std::span<const glm::vec3> vertices, std::span<const uint32_t> indices);
   void uploadToGPU();
   void draw() const;
   void releaseGL();

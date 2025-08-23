@@ -10,6 +10,9 @@
 #include "terrain/Terrain.hpp"
 #include "AppContext.hpp"
 #include "camera/FreeFlyCam.hpp"
+#include "gameplay/TrackComponent.hpp"
+#include "gfx/geometry/RailGeometryBuilder.hpp"
+#include "gfx/render/Track.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -133,7 +136,7 @@ int main() {
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-  GLFWwindow* window = glfwCreateWindow(cfg.windowWidth, cfg.windowHeight, "Rollercoaster - Terrain", nullptr,
+  GLFWwindow* window = glfwCreateWindow(cfg.windowWidth, cfg.windowHeight, "RollercoasterGL", nullptr,
                                         nullptr);
   if (!window) {
     std::cerr << "Failed to create window GLFW!" << std::endl;
@@ -182,6 +185,34 @@ int main() {
 
   std::cout << "MaxHeight = " << context.terrain.maxH() << std::endl;
   std::cout << "MinHeight = " << context.terrain.minH() << std::endl;
+
+  rc::gameplay::TrackComponent trackComp;
+  auto& s = trackComp.spline();
+  s.addNode({{115.f, 30.f,  0.f}});
+  s.addNode({{118.f, 50.5f, 112.f}});
+  s.addNode({{ 622.f, 70.5f,618.f}});
+  s.addNode({{ 725.f, 30.f,  0.f}});
+  s.setClosed(true);
+
+  trackComp.setDs(0.1f);
+  trackComp.setUp({0.f, 1.f, 0.f});
+  trackComp.markDirty();
+  trackComp.rebuild();
+  const auto& frames = trackComp.frames();
+
+  rc::gfx::geometry::RailGeometryBuilder rgb(frames);
+  rc::gfx::geometry::RailParams params{1.435f, 0.12f, 16, true, 0.25f};
+  if (!rgb.build(params)) {
+    std::cerr << "Failed to build geometry!" << std::endl;
+  }
+
+  rc::gfx::render::Track track;
+
+  std::vector<glm::vec3> onlyPos;
+  onlyPos.reserve(rgb.vertices().size());
+  for (auto& v : rgb.vertices()) onlyPos.push_back(v.pos);
+  track.setMesh(onlyPos, rgb.indices());
+  track.uploadToGPU();
 
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
@@ -271,6 +302,7 @@ int main() {
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
     context.terrain.draw();
+    track.draw();
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
