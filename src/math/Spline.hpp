@@ -48,6 +48,7 @@ public:
   void rebuildArcLengthLUT(std::size_t minSamplesPerSegment = 64);
   [[nodiscard]] float totalLength() const noexcept { return totalLength_; }
 
+
   [[nodiscard]] glm::vec3 getPosition(std::size_t segmentIndex, float t) const;
   [[nodiscard]] glm::vec3 getTangent(std::size_t segmentIndex, float t) const;
 
@@ -78,7 +79,7 @@ private:
   std::vector<Node> nodes_;
   std::vector<SegmentLUT> lut_; //jeden LUT na segment
   std::vector<float> segPrefix_;
-  bool closed_ = true;
+  bool closed_ = false;
   float totalLength_ = 0.f;
 
   [[nodiscard]] glm::vec3 getDerivative(std::size_t segmentIndex, float t) const;

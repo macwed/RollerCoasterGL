@@ -140,7 +140,29 @@ std::vector<common::Frame> buildFrames(const PathSampler& sampler, float ds, glm
   }
 
   frames.emplace_back(common::Frame{ P_end, T_end, N_end, B_end, trackLength });
+
   if (closed) {
+    const glm::vec3 T0 = frames.front().T;
+    const glm::vec3 B0 = frames.front().B;
+    const glm::vec3 Bend = frames.back().B;
+
+    auto signedAngleAround = [](const glm::vec3& a, const glm::vec3& b, const glm::vec3& axis) {
+      float x = glm::dot(a, b);
+      float y = glm::dot(axis, glm::cross(a, b));
+      return std::atan2(y, x);
+    };
+
+    const float dTheta = signedAngleAround(Bend, B0, T0); // róznica kątów końca i początku
+
+    for (auto& f : frames) {
+      float w = f.s / trackLength;
+      float phi = dTheta * w;
+      //odkręcanie wokół T
+      f.N = rotateAroundAxis(f.N, f.T, phi);
+      f.B = glm::normalize(glm::cross(f.T, f.N));
+      f.N = glm::normalize(glm::cross(f.B, f.T));
+    }
+
     frames.back().N = frames.front().N;
     frames.back().B = frames.front().B;
   }

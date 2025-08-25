@@ -11,6 +11,57 @@
 #include <glm/vec3.hpp>
 #include "Spline.hpp"
 
+namespace {
+inline void centripetalParams(const glm::vec3& P0, const glm::vec3& P1,
+                            const glm::vec3& P2, const glm::vec3& P3,
+                            float alpha, float& t0, float& t1,
+                            float& t2, float& t3) {
+
+  auto tj = [&](float ti, const glm::vec3& A, const glm::vec3& B) {
+    float d = glm::length(B - A);
+    return ti + std::pow(std::max(d, rc::math::kEps), alpha);
+  };
+
+  t0 = 0.f;
+  t1 = tj(t0, P0, P1);
+  t2 = tj(t1, P1, P2);
+  t3 = tj(t2, P2, P3);
+
+  if (!(t0 < t1 && t1 < t2 && t2 < t3)) {
+    t0 = 0.f;
+    t1 = 1.f;
+    t2 = 2.f;
+    t3 = 3.f;
+  }
+}
+//deCasteljeau z wiki
+inline glm::vec3 nonUniformCR(const glm::vec3& P0,
+                              const glm::vec3& P1,
+                              const glm::vec3& P2,
+                              const glm::vec3& P3,
+                              float u01,
+                              float t0, float t1, float t2, float t3)
+{
+  // przeskaluj u z [0,1] do [t1,t2]
+  float t = glm::mix(t1, t2, std::clamp(u01, 0.0f, 1.0f));
+
+  auto lerpT = [](const glm::vec3& A, const glm::vec3& B, float tA, float tB, float tCur) {
+    float w = (tCur - tA) / (tB - tA);
+    return (1.0f - w) * A + w * B;
+  };
+
+  glm::vec3 A1 = lerpT(P0, P1, t0, t1, t);
+  glm::vec3 A2 = lerpT(P1, P2, t1, t2, t);
+  glm::vec3 A3 = lerpT(P2, P3, t2, t3, t);
+
+  glm::vec3 B1 = lerpT(A1, A2, t0, t2, t);
+  glm::vec3 B2 = lerpT(A2, A3, t1, t3, t);
+
+  glm::vec3 C  = lerpT(B1, B2, t1, t2, t);
+  return C;
+}
+}
+
 namespace rc::math {
 void Spline::addNode(const Node& node)
 {
@@ -73,93 +124,117 @@ std::size_t Spline::segmentCount() const
 
 glm::vec3 Spline::getPosition(std::size_t segmentIndex, float t) const
 {
-  assert(segmentIndex < segmentCount());
-  if (segmentCount() == 0)
-  {
-    throw std::out_of_range("Spline::getPosition no segments");
-  }
+    const std::size_t n = nodes_.size();
+    if (segmentCount() == 0) throw std::out_of_range("Spline::getPosition no segments");
+    if (t < 0.f) t = 0.f; else if (t > 1.f) t = 1.f;
 
-  const auto n = nodes_.size();
+    constexpr float alpha = 0.5f; // centripetal
 
-  /*Catmull-Rom równanie
-  *C(t) = 0.5 * [(2P1) + (-P0 + P2)t + (2P0-5P1+4P2-P3)t^2 + (-P0+3P1-3P2+P3)t^3]
-  *0.5 - tension
-  *t - parametr [0,1] w obrębie segmentu między P1 i P2
-  */
+    glm::vec3 P0, P1, P2, P3;
+    if (closed_) {
+        auto w = [n](std::ptrdiff_t k) {
+          auto n1 = static_cast<std::ptrdiff_t>(n);
+          return ((k % n1 + n1) % n1);
+        };
+        std::ptrdiff_t i = (std::ptrdiff_t)segmentIndex;
+        P0 = nodes_[w(i - 1)].pos;
+        P1 = nodes_[w(i + 0)].pos;
+        P2 = nodes_[w(i + 1)].pos;
+        P3 = nodes_[w(i + 2)].pos;
+    } else {
+        const auto i = static_cast<std::ptrdiff_t>(segmentIndex);
+        const auto im1 = i - 1;
+        const auto ip2 = i + 2;
+        P0 = (im1 >= 0) ? nodes_[static_cast<std::size_t>(im1)].pos : (2.f*nodes_[0].pos - nodes_[1].pos);
+        P1 = nodes_[static_cast<std::size_t>(i)].pos;
+        P2 = nodes_[static_cast<std::size_t>(i + 1)].pos;
+        P3 = (ip2 < static_cast<std::ptrdiff_t>(n)) ? nodes_[static_cast<std::size_t>(ip2)].pos : (2.f*nodes_[n-1].pos - nodes_[n-2].pos);
+    }
 
-  if (closed_) {
-    const glm::vec3& P0 = nodes_[wrap(segmentIndex - 1, n)].pos;
-    const glm::vec3& P1 = nodes_[wrap(segmentIndex + 0, n)].pos;
-    const glm::vec3& P2 = nodes_[wrap(segmentIndex + 1, n)].pos;
-    const glm::vec3& P3 = nodes_[wrap(segmentIndex + 2, n)].pos;
+    // centripetal param:
+    const float t0 = 0.0f;
+    const float t1 = t0 + std::pow(glm::length(P1 - P0), alpha);
+    const float t2 = t1 + std::pow(glm::length(P2 - P1), alpha);
+    const float t3 = t2 + std::pow(glm::length(P3 - P2), alpha);
+    const float dt = std::max(t2 - t1, 1e-6f);
+    const float tt = t1 + t * dt; // rzeczywisty parametr w [t1,t2]
 
-    t = std::clamp(t, 0.0f, 1.0f);
-    float t2 = t * t;
-    float t3 = t2 * t;
+    glm::vec3 m1 = ((P1 - P0) / std::max(t1 - t0, 1e-6f)
+                  - (P2 - P0) / std::max(t2 - t0, 1e-6f)
+                  + (P2 - P1) / std::max(t2 - t1, 1e-6f)) * dt;
 
-    return 0.5f * (
-        (2.0f * P1) +
-        (-P0 + P2) * t +
-        (2.0f * P0 - 5.0f * P1 + 4.0f * P2 - P3) * t2 +
-        (-P0 + 3.0f * P1 - 3.0f * P2 + P3) * t3
-        );
-  } else {
-    const glm::vec3& P0 = nodes_[segmentIndex + 0].pos;
-    const glm::vec3& P1 = nodes_[segmentIndex + 1].pos;
-    const glm::vec3& P2 = nodes_[segmentIndex + 2].pos;
-    const glm::vec3& P3 = nodes_[segmentIndex + 3].pos;
+    glm::vec3 m2 = ((P2 - P1) / std::max(t2 - t1, 1e-6f)
+                  - (P3 - P1) / std::max(t3 - t1, 1e-6f)
+                  + (P3 - P2) / std::max(t3 - t2, 1e-6f)) * dt;
 
-    t = std::clamp(t, 0.0f, 1.0f);
-    float t2 = t * t;
-    float t3 = t2 * t;
+    const float u  = (tt - t1) / dt;
+    const float u2 = u * u;
+    const float u3 = u2 * u;
+    const float h00 =  2*u3 - 3*u2 + 1;
+    const float h10 =      u3 - 2*u2 + u;
+    const float h01 = -2*u3 + 3*u2;
+    const float h11 =      u3 -   u2;
 
-    return 0.5f * (
-        (2.0f * P1) +
-        (-P0 + P2) * t +
-        (2.0f * P0 - 5.0f * P1 + 4.0f * P2 - P3) * t2 +
-        (-P0 + 3.0f * P1 - 3.0f * P2 + P3) * t3
-        );
-  }
+    return h00*P1 + h10*m1 + h01*P2 + h11*m2;
 }
 
 glm::vec3 Spline::getDerivative(std::size_t segmentIndex, float t) const
 {
-  if (segmentCount() == 0)
-  {
-    throw std::out_of_range("Spline::getDerivative no segments");
-  }
-  assert(segmentIndex < segmentCount());
-  const auto n = nodes_.size();
-  if (closed_) {
-    const glm::vec3& P0 = nodes_[wrap(segmentIndex - 1, n)].pos;
-    const glm::vec3& P1 = nodes_[wrap(segmentIndex + 0, n)].pos;
-    const glm::vec3& P2 = nodes_[wrap(segmentIndex + 1, n)].pos;
-    const glm::vec3& P3 = nodes_[wrap(segmentIndex + 2, n)].pos;
+    const std::size_t n = nodes_.size();
+    if (segmentCount() == 0) throw std::out_of_range("Spline::getDerivative no segments");
+    if (t < 0.f) t = 0.f; else if (t > 1.f) t = 1.f;
 
-    t = std::clamp(t, 0.0f, 1.0f);
-    float t2 = t * t;
+    constexpr float alpha = 0.5f;
 
-    return 0.5f * (
-        (-P0 + P2) +
-        (2.f * P0 - 5.0f * P1 + 4.0f * P2 - P3) * (2.0f * t) +
-        (-P0 + 3.0f * P1 - 3.0f * P2 + P3) * (3.0f * t2)
-        );
-  } else {
-    const glm::vec3& P0 = nodes_[segmentIndex + 0].pos;
-    const glm::vec3& P1 = nodes_[segmentIndex + 1].pos;
-    const glm::vec3& P2 = nodes_[segmentIndex + 2].pos;
-    const glm::vec3& P3 = nodes_[segmentIndex + 3].pos;
+    glm::vec3 P0, P1, P2, P3;
+    if (closed_) {
+      auto w = [n](std::ptrdiff_t k) {
+        auto n1 = static_cast<std::ptrdiff_t>(n);
+        return ((k % n1 + n1) % n1);
+      };
+        std::ptrdiff_t i = (std::ptrdiff_t)segmentIndex;
+        P0 = nodes_[w(i - 1)].pos;
+        P1 = nodes_[w(i + 0)].pos;
+        P2 = nodes_[w(i + 1)].pos;
+        P3 = nodes_[w(i + 2)].pos;
+    } else {
+        int i = (int)segmentIndex;
+        const int im1 = i - 1;
+        const int ip2 = i + 2;
+        P0 = (im1 >= 0)       ? nodes_[(std::size_t)im1].pos : (2.f*nodes_[0].pos - nodes_[1].pos);
+        P1 = nodes_[(std::size_t)i].pos;
+        P2 = nodes_[(std::size_t)(i+1)].pos;
+        P3 = (ip2 < (int)n)   ? nodes_[(std::size_t)ip2].pos : (2.f*nodes_[n-1].pos - nodes_[n-2].pos);
+    }
 
-    t = std::clamp(t, 0.0f, 1.0f);
-    float t2 = t * t;
+    const float t0 = 0.0f;
+    const float t1 = t0 + std::pow(glm::length(P1 - P0), alpha);
+    const float t2 = t1 + std::pow(glm::length(P2 - P1), alpha);
+    const float t3 = t2 + std::pow(glm::length(P3 - P2), alpha);
+    const float dt = std::max(t2 - t1, 1e-6f);
+    const float tt = t1 + t * dt;
 
-    //pochodna po t
-    return 0.5f * (
-        (-P0 + P2) +
-        (2.f * P0 - 5.0f * P1 + 4.0f * P2 - P3) * (2.0f * t) +
-        (-P0 + 3.0f * P1 - 3.0f * P2 + P3) * (3.0f * t2)
-        );
-  }
+    glm::vec3 m1 = ((P1 - P0) / std::max(t1 - t0, 1e-6f)
+                  - (P2 - P0) / std::max(t2 - t0, 1e-6f)
+                  + (P2 - P1) / std::max(t2 - t1, 1e-6f)) * dt;
+
+    glm::vec3 m2 = ((P2 - P1) / std::max(t2 - t1, 1e-6f)
+                  - (P3 - P1) / std::max(t3 - t1, 1e-6f)
+                  + (P3 - P2) / std::max(t3 - t2, 1e-6f)) * dt;
+
+    const float u  = (tt - t1) / dt;
+    const float u2 = u * u;
+
+    // Pochodna Hermite’a po u
+    const float dh00 =  6*u2 - 6*u;
+    const float dh10 =  3*u2 - 4*u + 1;
+    const float dh01 = -6*u2 + 6*u;
+    const float dh11 =  3*u2 - 2*u;
+
+    // dC/du
+    glm::vec3 dCdu = dh00*P1 + dh10*m1 + dh01*P2 + dh11*m2;
+    // dC/dt = (dC/du) * du/dt, gdzie u = (t - t1)/(t2 - t1) -> du/dt = 1/dt
+    return dCdu / dt;
 }
 
 glm::vec3 Spline::getTangent(std::size_t segmentIndex, float t) const

@@ -265,4 +265,23 @@ common::Frame TrackComponent::frameAtS(float s) const
   f.N     = glm::normalize(glm::cross(f.B, f.T));
   return f;
 }
+void TrackComponent::setClosed(bool v) {
+  spline_.setClosed(v);
+  if (v && spline_.nodeCount() >= 4) {
+    auto P0 = spline_.getNode(0).pos;
+    auto Pn = spline_.getNode(spline_.nodeCount()-1).pos;
+    float d = glm::length(Pn - P0);
+    const float snap = 0.25f;
+    const float stitch = 4.0f;
+    if (d < snap) {
+      spline_.moveNode(spline_.nodeCount()-1, P0);
+    } else if (d > stitch) {
+      glm::vec3 Q1 = glm::mix(Pn, P0, 0.33f);
+      glm::vec3 Q2 = glm::mix(Pn, P0, 0.66f);
+      spline_.insertNode(spline_.nodeCount(), {Q1});
+      spline_.insertNode(spline_.nodeCount(), {Q2});
+    }
+  }
+  markDirty();
+}
 }
