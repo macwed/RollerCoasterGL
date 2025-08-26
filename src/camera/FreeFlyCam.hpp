@@ -28,9 +28,7 @@ public:
 
 private:
     void updateVectors();
-
 };
 
 
-
-#endif //FREEFLYCAM_HPP
+#endif // FREEFLYCAM_HPP

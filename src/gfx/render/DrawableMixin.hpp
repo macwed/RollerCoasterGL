@@ -8,13 +8,11 @@
 
 template <typename T>
 class DrawableMixin {
-    public:
-    void drawImpl()
-    {
+public:
+    void drawImpl() {
         static_cast<T*>(this)->draw();
     }
 };
 
 
-
-#endif //DRAWABLEMIXIN_HPP
+#endif // DRAWABLEMIXIN_HPP

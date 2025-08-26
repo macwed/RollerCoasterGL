@@ -3,38 +3,40 @@
 //
 
 #include "SimplexNoise.hpp"
-#include "glm/glm.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <random>
 #include <vector>
 
+#include "glm/glm.hpp"
+
 constexpr float F2 = 0.36602540378f; // (sqrt(3)-1)/2
-constexpr float G2 = 0.2113248654f;  // (3-sqrt(3))/6
+constexpr float G2 = 0.2113248654f; // (3-sqrt(3))/6
 
 SimplexNoise::SimplexNoise(int seed) : seed_(seed) {
     init_perm_();
     init_gradient_table_();
 }
 
-float SimplexNoise::noise(float x, float y) const
-{
-    //skewing
+float SimplexNoise::noise(float x, float y) const {
+    // skewing
     float s = (x + y) * F2;
     int i = static_cast<int>(std::floor(x + s));
     int j = static_cast<int>(std::floor(y + s));
 
-    //unskewing
+    // unskewing
     float t = static_cast<float>((i + j)) * G2;
     float x0 = x - (static_cast<float>(i) - t);
     float y0 = y - (static_cast<float>(j) - t);
 
     int i1, j1;
     if (x0 > y0) {
-        i1 = 1; j1 = 0;
+        i1 = 1;
+        j1 = 0;
     } else {
-        i1 = 0; j1 = 1;
+        i1 = 0;
+        j1 = 1;
     }
 
     int ii = i & 255;
@@ -53,15 +55,18 @@ float SimplexNoise::noise(float x, float y) const
     float dot1 = glm::dot(gradient_table_[gi1], glm::vec2(x1, y1));
     float dot2 = glm::dot(gradient_table_[gi2], glm::vec2(x2, y2));
 
-    //dot products weights
-    float t0 = 0.5f - x0*x0 - y0*y0;
-    float t1 = 0.5f - x1*x1 - y1*y1;
-    float t2 = 0.5f - x2*x2 - y2*y2;
+    // dot products weights
+    float t0 = 0.5f - x0 * x0 - y0 * y0;
+    float t1 = 0.5f - x1 * x1 - y1 * y1;
+    float t2 = 0.5f - x2 * x2 - y2 * y2;
 
     float contrib0 = 0.0f, contrib1 = 0.0f, contrib2 = 0.0f;
-    if (t0 > 0) contrib0 = static_cast<float>(pow(t0, 4)) * dot0;
-    if (t1 > 0) contrib1 = static_cast<float>(pow(t1, 4)) * dot1;
-    if (t2 > 0) contrib2 = static_cast<float>(pow(t2, 4)) * dot2;
+    if (t0 > 0)
+        contrib0 = static_cast<float>(pow(t0, 4)) * dot0;
+    if (t1 > 0)
+        contrib1 = static_cast<float>(pow(t1, 4)) * dot1;
+    if (t2 > 0)
+        contrib2 = static_cast<float>(pow(t2, 4)) * dot2;
 
     float noise = 70.0f * (contrib0 + contrib1 + contrib2);
 
@@ -90,8 +95,7 @@ void SimplexNoise::init_perm_() {
     }
     std::shuffle(perm_.begin(), perm_.begin() + 256, gen);
 
-    for (int i = 0; i < 256; i++)
-    {
+    for (int i = 0; i < 256; i++) {
         perm_[256 + i] = perm_[i];
     }
 }

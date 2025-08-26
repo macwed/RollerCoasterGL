@@ -1,0 +1,16 @@
+Checks: >
+  modernize-use-nullptr,
+  modernize-use-override,
+  modernize-loop-convert,
+  modernize-use-default-member-init,
+  modernize-use-equals-default,
+  performance-for-range-copy,
+  performance-unnecessary-value-param,
+  bugprone-branch-clone
+WarningsAsErrors: ''
+HeaderFilterRegex: '^(src|include)/'
+FormatStyle: file
+CheckOptions:
+  - key: modernize-use-nullptr.NullMacros
+    value: 'NULL'
+

@@ -9,4 +9,4 @@
 
 void savePGM(const Array_2D<float>& arr, const std::string& filename);
 
-#endif //SAVEHEIGHTMAP_HPP
+#endif // SAVEHEIGHTMAP_HPP

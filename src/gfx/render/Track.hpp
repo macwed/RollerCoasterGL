@@ -11,26 +11,24 @@
 #include "gfx/render/DrawableMixin.hpp"
 
 namespace rc::gfx::render {
-class Track : public DrawableMixin<Track> {
-public:
-  Track();
-  ~Track();
+    class Track : public DrawableMixin<Track> {
+    public:
+        Track();
+        ~Track();
 
-  void setMesh(std::span<const glm::vec3> vertices, std::span<const uint32_t> indices);
-  void uploadToGPU();
-  void draw() const;
-  void releaseGL();
+        void setMesh(std::span<const glm::vec3> vertices, std::span<const uint32_t> indices);
+        void uploadToGPU();
+        void draw() const;
+        void releaseGL();
 
-private:
+    private:
+        std::vector<glm::vec3> points_;
+        std::vector<std::uint32_t> indices_;
+        unsigned vbo_, vao_, ibo_;
 
-  std::vector<glm::vec3> points_;
-  std::vector<std::uint32_t> indices_;
-  unsigned vbo_, vao_, ibo_;
-
-  // no extra state yet; normals/uv to be added with future shaders
-};
-}
-
+        // no extra state yet; normals/uv to be added with future shaders
+    };
+} // namespace rc::gfx::render
 
 
-#endif //TRACK_HPP
+#endif // TRACK_HPP

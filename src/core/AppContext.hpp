@@ -4,13 +4,13 @@
 
 #ifndef APPCONTEXT_HPP
 #define APPCONTEXT_HPP
-#include <glad.h>
+//#include <glad.h>
+
 #include "../camera/FreeFlyCam.hpp"
 #include "../terrain/Terrain.hpp"
 
 
-struct ProjectConfig
-{
+struct ProjectConfig {
     int windowWidth, windowHeight;
 
     glm::vec3 camPos;
@@ -24,11 +24,9 @@ struct ProjectConfig
     float noisePersistence;
     float noiseExponent;
     float noiseHeightScale;
-
 };
 
-struct AppContext
-{
+struct AppContext {
 
     FreeFlyCam camera;
     Terrain terrain;
@@ -40,12 +38,8 @@ struct AppContext
     bool showTerrainPanel = false;
 
     explicit AppContext(const ProjectConfig& cfg) :
-        camera(cfg.camPos),
-        terrain(cfg.mapWidth, cfg.mapHeight, cfg.noiseSeed)
-    {}
-
+        camera(cfg.camPos), terrain(cfg.mapWidth, cfg.mapHeight, cfg.noiseSeed) {}
 };
 
 
-
-#endif //APPCONTEXT_HPP
+#endif // APPCONTEXT_HPP

@@ -4,27 +4,20 @@
 
 #include "FreeFlyCam.hpp"
 
-#include <cmath>
 #include <GLFW/glfw3.h>
+#include <cmath>
 #include <glm/trigonometric.hpp>
-//#include <glm/detail/func_trigonometric.inl>
+// #include <glm/detail/func_trigonometric.inl>
 #include <glm/ext/matrix_transform.hpp>
 
-FreeFlyCam::FreeFlyCam(glm::vec3 startPos)
-    : position(startPos),
-        front(0.0f, 0.0f, -1.0f),
-        up(0.0f, 1.0f, 0.0f),
-        right(0.0f, 0.0f, 0.0f),
-        yaw(-90.0f),
-        pitch(0.0f),
-        moveSpeed(15.0f),
-        mouseSensitivity(0.1f)
-{
- updateVectors();
+FreeFlyCam::FreeFlyCam(glm::vec3 startPos) :
+    position(startPos), front(0.0f, 0.0f, -1.0f), up(0.0f, 1.0f, 0.0f), right(0.0f, 0.0f, 0.0f), yaw(-90.0f),
+    pitch(0.0f), moveSpeed(15.0f), mouseSensitivity(0.1f) {
+    updateVectors();
 }
 
 
-void FreeFlyCam::processKeyboard(const bool *keys, float deltaTime) {
+void FreeFlyCam::processKeyboard(const bool* keys, float deltaTime) {
     float velocity = moveSpeed * deltaTime;
 
     moveSpeed = (keys[GLFW_KEY_LEFT_CONTROL] ? 60.0f : 15.0f);
@@ -61,8 +54,7 @@ glm::mat4 FreeFlyCam::getViewMatrix() const {
     return glm::lookAt(position, position + front, up);
 }
 
-void FreeFlyCam::updateVectors()
-{
+void FreeFlyCam::updateVectors() {
     glm::vec3 newFront;
     newFront.x = static_cast<float>(cos(glm::radians(yaw)) * cos(glm::radians(pitch)));
     newFront.y = static_cast<float>(sin(glm::radians(pitch)));

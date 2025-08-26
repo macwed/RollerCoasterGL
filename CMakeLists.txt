@@ -23,26 +23,11 @@ endif()
 add_library(glad STATIC thirdparty/glad/glad.c)
 target_include_directories(glad PUBLIC thirdparty/glad/)
 
-# ImGui
-set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/thirdparty/imgui")
-if(EXISTS "${IMGUI_DIR}/imgui.cpp")
-    file(GLOB IMGUI_SOURCES
-            "${IMGUI_DIR}/*.cpp"
-            "${IMGUI_DIR}/backends/imgui_impl_glfw.cpp"
-            "${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp")
-    add_library(imgui STATIC ${IMGUI_SOURCES})
-    target_include_directories(imgui PUBLIC
-            ${IMGUI_DIR}
-            ${IMGUI_DIR}/backends
-    )
-    set(HAVE_IMGUI TRUE)
-else()
-    set(HAVE_IMGUI FALSE)
-endif()
-
 # ---------------- Packages ----------------
-find_package(glfw3 CONFIG REQUIRED)   # vcpkg: glfw3
-find_package(glm CONFIG REQUIRED)     # vcpkg: glm
+find_package(imgui CONFIG REQUIRED)
+find_package(glfw3 CONFIG REQUIRED)
+find_package(glad CONFIG REQUIRED)
+find_package(OpenGL REQUIRED)
 
 # Linux
 if(UNIX AND NOT APPLE)
@@ -55,7 +40,8 @@ file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
         "${CMAKE_SOURCE_DIR}/src/*.cpp"
 )
 
-add_executable(RollerCoasterGL ${SRC_FILES})
+add_executable(RollerCoasterGL ${SRC_FILES}
+        src/gameplay/Car.cpp)
 add_custom_command(TARGET RollerCoasterGL POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/assets
@@ -65,21 +51,13 @@ add_custom_command(TARGET RollerCoasterGL POST_BUILD
 # ---------------- Includes ----------------
 target_include_directories(RollerCoasterGL PRIVATE
         ${CMAKE_SOURCE_DIR}/src
+        SYSTEM
         ${CMAKE_SOURCE_DIR}/thirdparty/glad/
 )
 
 # ---------------- Link ----------------
-target_link_libraries(RollerCoasterGL PRIVATE
-        glad
-        glfw
-        glm::glm
-)
-
-if(HAVE_IMGUI)
-    target_link_libraries(RollerCoasterGL PRIVATE imgui)
-    target_compile_definitions(RollerCoasterGL PRIVATE RCG_HAVE_IMGUI=1)
-endif()
+target_link_libraries(RollerCoasterGL PRIVATE imgui::imgui glfw glad OpenGL::GL)
 
 if(UNIX AND NOT APPLE)
-    target_link_libraries(RollerCoasterGL PRIVATE OpenGL::GL dl)
+    target_link_libraries(RollerCoasterGL PRIVATE imgui::imgui glfw glad OpenGL::GL)
 endif()

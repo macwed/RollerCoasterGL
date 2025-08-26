@@ -6,28 +6,35 @@
 #define PATHSAMPLER_HPP
 #include <glm/vec3.hpp>
 #include <vector>
+
 #include "common/TrackTypes.hpp"
 #include "math/Spline.hpp"
 
 namespace rc::physics {
-struct Sample
-{
-  glm::vec3 pos, tan;
-};
+    constexpr float kEps = 1e-6f;
+    constexpr float kEps2 = kEps * kEps;
 
-class PathSampler {
-public:
-  PathSampler(const math::Spline& spline, const std::vector<common::EdgeMeta>& e);
+    struct Sample {
+        glm::vec3 pos, tan;
+    };
 
-  [[nodiscard]] Sample sampleAtS(float s) const;
-  [[nodiscard]] float totalLength() const { return spline_.totalLength(); }
-  [[nodiscard]] bool isClosed() const { return spline_.isClosed(); }
+    class PathSampler {
+    public:
+        PathSampler(const math::Spline& spline, const std::vector<common::EdgeMeta>& e);
 
-private:
-  const math::Spline& spline_;
-  const std::vector<common::EdgeMeta>& edges_;
-};
-}
+        [[nodiscard]] Sample sampleAtS(float s) const;
+        [[nodiscard]] float totalLength() const {
+            return spline_.totalLength();
+        }
+        [[nodiscard]] bool isClosed() const {
+            return spline_.isClosed();
+        }
+
+    private:
+        const math::Spline& spline_;
+        const std::vector<common::EdgeMeta>& edges_;
+    };
+} // namespace rc::physics
 
 
-#endif //PATHSAMPLER_HPP
+#endif // PATHSAMPLER_HPP
