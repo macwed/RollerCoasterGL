@@ -7,14 +7,14 @@
 
 namespace rc::gameplay {
     void Car::update(float dt, const TrackComponent& track) {
-        s += v * dt;
+        s_ += v_ * dt;
         if (track.isClosed()) {
             float L = track.totalLength();
-            s = std::fmod(s, L);
-            if (s < 0) s += L;
+            s_ = std::fmod(s_, L);
+            if (s_ < 0) s_ += L;
         }
-        auto f = track.frameAtS(s);
-        pos = f.pos;
-        orientation = glm::mat3(f.T, f.N, f.B);
+        auto f = track.frameAtS_fast(s_, lookup_);
+        pos_ = f.pos;
+        orientation_ = glm::mat3(f.T, f.N, f.B);
     }
 }

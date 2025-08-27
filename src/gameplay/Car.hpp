@@ -15,15 +15,16 @@ namespace rc::gameplay {
         Car() = default;
 
         void update(float dt, const TrackComponent& track);
-        glm::vec3 getPos() const { return pos; }
-        glm::mat3 getOrientation() const { return orientation; }
+        glm::vec3 getPos() const { return pos_; }
+        glm::mat3 getOrientation() const { return orientation_; }
 
     private:
-        glm::vec3 pos;
-        glm::mat3 orientation;
+        glm::vec3 pos_{0.f};
+        glm::mat3 orientation_{1.f};
+        TrackComponent::FrameLookup lookup_;
 
-        float s = 0.0f;
-        float v = 10.0f;
+        float s_ = 0.0f;
+        float v_ = 15.0f;
     };
 }
 

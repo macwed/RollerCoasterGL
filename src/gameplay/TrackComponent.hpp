@@ -37,6 +37,14 @@ namespace rc::gameplay {
         [[nodiscard]] glm::vec3 positionAtS(float s) const;
         [[nodiscard]] glm::vec3 tangentAtS(float s) const;
         [[nodiscard]] common::Frame frameAtS(float s) const;
+
+        struct FrameLookup {
+            std::size_t idx = 0;
+            float lastS = 0.f;
+        };
+
+        common::Frame frameAtS_fast(float s, FrameLookup& fl) const;
+
         [[nodiscard]] float totalLength() const { return spline_.totalLength(); }
 
         void setDs(float v) {

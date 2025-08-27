@@ -25,8 +25,8 @@ ProjectConfig cfg{.windowWidth = 1920,
                   .windowHeight = 1280,
                   .camPos = glm::vec3(50.0f, 50.0f, 150.0f),
 
-                  .mapWidth = 512,
-                  .mapHeight = 512,
+                  .mapWidth = 256,
+                  .mapHeight = 256,
 
                   .noiseSeed = 4245221,
                   .noiseScale = 0.001f,
@@ -142,6 +142,7 @@ int main() {
         return -1;
     }
     glfwMakeContextCurrent(window);
+    glfwSwapInterval(1);
 
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
@@ -279,6 +280,7 @@ int main() {
 
         context.currentFrame = static_cast<float>(glfwGetTime());
         context.deltaTime = context.currentFrame - context.lastFrame;
+        if (context.deltaTime >= 0.05f) context.deltaTime = 0.05f;
         context.lastFrame = context.currentFrame;
 
         static bool prevF1 = false, prevF2 = false;
