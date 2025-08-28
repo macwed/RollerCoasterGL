@@ -21,7 +21,7 @@ namespace rc::gfx::geometry {
         const bool hasDuplicateEnd = (glm::dot(dp, dp) < closeEps2);
         const bool closedEff = closed && hasDuplicateEnd;
 
-        // Ile ringów faktycznie rysujemy i ile segmentów zszywamy
+        // Ile ringów  i ile segmentów
         uint32_t ringsTotal =
                 closedEff ? static_cast<uint32_t>(frames_.size()) - 1u : static_cast<uint32_t>(frames_.size());
         uint32_t segs = closedEff ? ringsTotal : (ringsTotal - 1u);
@@ -30,7 +30,7 @@ namespace rc::gfx::geometry {
             return (closedEff && (i + 1u == ringsTotal)) ? 0u : (i + 1u);
         };
 
-        const uint32_t ring = p.ringSides + 1u; // +1 bo duplikujemy pierwszy profil, by zamknąć okrąg
+        const uint32_t ring = p.ringSides + 1u; // +1 bo duplikuje pierwszy profil, by zamknąć okrąg
         constexpr uint32_t rails = 2u;
 
         const uint32_t vertsTotal = ringsTotal * ring * rails;
@@ -40,7 +40,6 @@ namespace rc::gfx::geometry {
         vertices_.resize(vertsTotal);
         indices_.resize(trisTotal * 3u);
 
-        // Ringi – generujemy WSZYSTKIE r0..r_(ringsTotal-1)
         for (uint32_t i = 0; i < ringsTotal; ++i) {
             rings_(i, frames_[i].pos, frames_[i].N, frames_[i].B, p, ringsTotal, closedEff);
         }
@@ -49,7 +48,6 @@ namespace rc::gfx::geometry {
             return frameIdx * (ring * 2u) + (rail ? ring + r : r);
         };
 
-        // Zszywanie
         size_t w = 0;
         for (uint32_t i = 0; i < segs; ++i) {
             const uint32_t j = nextFrame(i);

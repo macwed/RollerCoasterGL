@@ -16,6 +16,12 @@ FreeFlyCam::FreeFlyCam(glm::vec3 startPos) :
     updateVectors();
 }
 
+void FreeFlyCam::lookAtTarget(const glm::vec3& target) {
+    glm::vec3 d = glm::normalize(target - position);
+    yaw   = glm::degrees(atan2(d.z, d.x));
+    pitch = glm::degrees(asin(glm::clamp(d.y, -1.0f, 1.0f)));
+    updateVectors();
+}
 
 void FreeFlyCam::processKeyboard(const bool* keys, float deltaTime) {
     float velocity = moveSpeed * deltaTime;

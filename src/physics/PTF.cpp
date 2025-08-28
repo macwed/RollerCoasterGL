@@ -5,6 +5,7 @@
 #include "PTF.hpp"
 
 #include <algorithm>
+#include <glm/gtc/quaternion.hpp>
 #include <glm/vec3.hpp>
 #include <iostream>
 #include <ostream>
@@ -65,7 +66,7 @@ namespace rc::physics {
                 B = glm::normalize(glm::cross(T, N_rot));
                 N = glm::normalize(glm::cross(B, T));
             } else {
-                // taki bezpiecznik gdyby jednak vec styczne były równoległe o przeciwnych zwrotach - czasem zjebie
+                // taki bezpiecznik gdyby jednak vec styczne były równoległe o przeciwnych zwrotach - czasem rozwali
                 // ramkę na spojeniach segmentów itp
                 if (cos_phi < -0.9999f) {
                     // T_curr ~ -T_prev
@@ -107,7 +108,12 @@ namespace rc::physics {
                     N = glm::normalize(glm::cross(B, T));
                 }
             }
-            frames.emplace_back(common::Frame{P, T, N, B, s});
+            glm::mat3 R(T, N, B);
+            glm::quat q = glm::quat_cast(R);
+            if (!frames.empty()) {
+                if (glm::dot(frames.back().q, q) < 0.0f) q = -q;
+            }
+            frames.emplace_back(common::Frame{P, T, N, B, s, q});
         }
         // ost ramka s = trackLength
         const Sample sl = sampler.sampleAtS(trackLength);
@@ -131,8 +137,13 @@ namespace rc::physics {
             N_end = -N_end;
             B_end = -B_end;
         }
+        glm::mat3 R(T_end, N_end, B_end);
+        glm::quat q = glm::quat_cast(R);
+        if (!frames.empty()) {
+            if (glm::dot(frames.back().q, q) < 0.0f) q = -q;
+        }
 
-        frames.emplace_back(common::Frame{P_end, T_end, N_end, B_end, trackLength});
+        frames.emplace_back(common::Frame{P_end, T_end, N_end, B_end, trackLength, q});
 
         if (closed) {
             const glm::vec3 T0 = frames.front().T;
@@ -158,6 +169,7 @@ namespace rc::physics {
 
             frames.back().N = frames.front().N;
             frames.back().B = frames.front().B;
+            frames.back().q = frames.front().q;
         }
         return frames;
     }

@@ -23,7 +23,7 @@
 
 ProjectConfig cfg{.windowWidth = 1920,
                   .windowHeight = 1280,
-                  .camPos = glm::vec3(50.0f, 50.0f, 150.0f),
+                  .camPos = glm::vec3(10.0f, 50.0f, 0.0f),
 
                   .mapWidth = 256,
                   .mapHeight = 256,
@@ -209,6 +209,13 @@ int main() {
     rc::gfx::geometry::RailGeometryBuilder rgb(frames);
     rc::gfx::geometry::RailParams params{1.435f, 0.12f, 16, trackComp.isClosed(), 0.25f};
 
+    if (!frames.empty()) {
+        glm::vec3 P0 = frames.front().pos;
+        glm::vec3 T0 = frames.front().T;
+        context.camera.position = P0 - 20.f * T0 + glm::vec3(0.0f, 10.f, 0.f);
+        context.camera.lookAtTarget(P0 + 5.0f * T0);
+    }
+
     float cubeVertices[] = {
         // pozycje
         -0.5f, -0.5f, -0.5f,
@@ -247,6 +254,8 @@ int main() {
 
     glBindVertexArray(0);
     rc::gameplay::Car car;
+    car.bindTrack(trackComp);
+    car.kick(550.f);
     GLuint carShader = createShaderProgram(
         loadShaderSource("assets/shaders/car.vert"),
         loadShaderSource("assets/shaders/car.frag")
@@ -355,6 +364,12 @@ int main() {
         context.terrain.draw();
         track.draw();
         car.update(context.deltaTime, trackComp);
+
+        static int dbg=0;
+        if (dbg<120) {
+            auto p = car.getPos();
+            std::cout<<"pos "<<dbg++<<": "<<p.x<<","<<p.y<<","<<p.z<<"\n";
+        }
 
         // macierz model = translacja * rotacja * skalowanie
         glm::mat4 carModel(1.0f);

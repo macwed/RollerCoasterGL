@@ -22,6 +22,8 @@ public:
 
     FreeFlyCam(glm::vec3 startPos);
 
+    void lookAtTarget(const glm::vec3& target);
+
     void processKeyboard(const bool* keys, float deltaTime);
     void processMouse(float xOffset, float yOffset);
     glm::mat4 getViewMatrix() const;

@@ -43,8 +43,6 @@ namespace rc::gameplay {
             float lastS = 0.f;
         };
 
-        common::Frame frameAtS_fast(float s, FrameLookup& fl) const;
-
         [[nodiscard]] float totalLength() const { return spline_.totalLength(); }
 
         void setDs(float v) {

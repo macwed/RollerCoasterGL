@@ -41,7 +41,9 @@ file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
 )
 
 add_executable(RollerCoasterGL ${SRC_FILES}
-        src/gameplay/Car.cpp)
+        src/gameplay/Car.cpp
+        src/physics/FrameCursor.cpp
+        src/physics/FrameCursor.hpp)
 add_custom_command(TARGET RollerCoasterGL POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/assets

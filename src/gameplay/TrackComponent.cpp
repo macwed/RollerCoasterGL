@@ -238,7 +238,7 @@ namespace rc::gameplay {
         return tan;
     }
 
-    common::Frame TrackComponent::frameAtS(float s) const {
+    [[deprecated]]common::Frame TrackComponent::frameAtS(float s) const {
         if (frames_.empty())
             return {positionAtS(s), tangentAtS(s), {0.f, 1.f, 0.f}, {1.f, 0.f, 0.f}, s};
 
@@ -264,97 +264,6 @@ namespace rc::gameplay {
         f.N = glm::normalize(glm::cross(f.B, f.T));
         return f;
     }
-
-    common::Frame TrackComponent::frameAtS_fast(float s, FrameLookup& fl) const {
-        if (frames_.empty()) {
-            return {positionAtS(s), tangentAtS(s), { 0.f, 1.f, 0.f}, { 1.f, 0.f, 0.f }, s };
-        }
-        const float L = spline_.totalLength();
-        auto wrap = [&](float x) { return std::fmod(std::fmod(x, L) + L, L); };
-        const bool closed = spline_.isClosed();
-        if (closed) {
-            s = wrap(s);
-        } else {
-            s = std::clamp(s, 0.f, L);
-        }
-        if (fl.idx >= frames_.size()) fl.idx = 0;
-        std::size_t i = fl.idx;
-        auto nextIdx = [&](std::size_t k) {
-            return (closed && k + 1 == frames_.size()) ? 0 : k + 1;
-        };
-        auto prevIdx = [&](std::size_t k) {
-            return (closed && k == 0) ? frames_.size() - 1 : k - 1;
-        };
-
-        if (closed) {
-            const bool wrappedForward = (fl.lastS > L * 0.5f && s < L * 0.5f && fl.lastS > s);
-            const bool wrappedBackward = (fl.lastS < L * 0.5f && s > L * 0.5f && fl.lastS < s);
-
-            if (wrappedForward) {
-                while (i != 0 && frames_[i].s < frames_.back().s) i = nextIdx(i);
-            } else if (wrappedBackward) {
-                while (i != 0 && frames_[i].s > frames_[0].s) i = prevIdx(i);
-            }
-
-            for (;;) {
-                std::size_t j = nextIdx(i);
-                float si = frames_[i].s;
-                float sj = frames_[j].s;
-
-                bool inSeg = false;
-                if (j == 0) {
-                    inSeg = (s >= si || s <= sj);
-                } else {
-                    inSeg = (s >= si && s <= sj);
-                }
-                if (inSeg) {
-                    float denom, ds;
-                    if (j == 0) {
-                        denom = L - frames_[i].s + frames_[0].s;
-                        ds = s >= frames_[i].s ? (s - frames_[i].s) : (L - frames_[i].s + s);
-                    } else {
-                        denom = frames_[j].s - frames_[i].s;
-                        ds = s - frames_[i].s;
-                    }
-                    float t = (denom > 1e-6) ? std::clamp(ds / denom, 0.f, 1.f) : 0.f;
-
-                    common::Frame f;
-                    f.s = s;
-                    f.pos = glm::mix(frames_[i].pos, frames_[j].pos, t);
-                    f.T = glm::normalize(glm::mix(frames_[i].T, frames_[j].T, t));
-                    f.N = glm::normalize(glm::mix(frames_[i].N, frames_[j].N, t));
-                    f.B = glm::normalize(glm::cross(f.T, f.N));
-                    f.N = glm::normalize(glm::cross(f.B, f.T));
-
-                    fl.idx = i;
-                    fl.lastS = s;
-                    return f;
-                }
-                i = j;
-            }
-            } else {
-                while (i + 1 < frames_.size() && frames_[i + 1].s < s) ++i;
-                while (i > 0 && frames_[i].s < s) --i;
-
-                std::size_t j = (i + 1 < frames_.size()) ? i + 1 : i;
-                float si = frames_[i].s;
-                float sj = frames_[j].s;
-                float denom = std::max(sj - si, 1e-6f);
-                float t = (j == i) ? 0.f : std::clamp((s - si) / denom, 0.f, 1.f);
-
-                common::Frame f;
-                f.s = s;
-                f.pos = glm::mix(frames_[i].pos, frames_[j].pos, t);
-                f.T = glm::normalize(glm::mix(frames_[i].T, frames_[j].T, t));
-                f.N = glm::normalize(glm::mix(frames_[i].N, frames_[j].N, t));
-                f.B = glm::normalize(glm::cross(f.T, f.N));
-                f.N = glm::normalize(glm::cross(f.B, f.T));
-
-                fl.idx = i;
-                fl.lastS = s;
-                return f;
-            }
-        }
 
     void TrackComponent::setClosed(bool v) {
         spline_.setClosed(v);

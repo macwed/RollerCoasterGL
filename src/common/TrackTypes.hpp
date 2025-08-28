@@ -6,6 +6,7 @@
 #define TRACKTYPES_HPP
 
 #include <glm/vec3.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 namespace rc::common {
     enum class EdgeType { CatmullRom, Linear, Circular, Helix };
@@ -22,6 +23,7 @@ namespace rc::common {
     struct Frame {
         glm::vec3 pos, T, N, B;
         float s = 0.f;
+        glm::quat q;
     };
 } // namespace rc::common
 
