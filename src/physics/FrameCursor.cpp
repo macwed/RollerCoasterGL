@@ -4,10 +4,8 @@
 
 #include "FrameCursor.hpp"
 
-#include <glm/geometric.hpp>
-
 namespace rc::physics {
-    void FrameCursor::sample(float sQuery, glm::vec3& pos, glm::vec3& T, glm::vec3& N, glm::vec3& B) {
+    void FrameCursor::sample(float sQuery, glm::vec3& pos, glm::vec3& T, glm::vec3& N, glm::vec3& B, glm::quat& q) {
         if (!F_ || F_ -> empty()) {
             pos = {};
             T = {1.f, 0.f, 0.f};
@@ -32,7 +30,7 @@ namespace rc::physics {
         glm::quat qa = a.q;
         glm::quat qb = b.q;
         if (glm::dot(qa, qb) < 0.f) qb = -qb;
-        glm::quat q = glm::normalize(glm::slerp(qa, qb, t));
+        q = glm::normalize(glm::slerp(qa, qb, t));
         glm::mat3 R = glm::mat3_cast(q);
 
         pos = glm::mix(a.pos, b.pos, t);

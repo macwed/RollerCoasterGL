@@ -10,6 +10,8 @@
 // #include <glm/detail/func_trigonometric.inl>
 #include <glm/ext/matrix_transform.hpp>
 
+#include "gameplay/Car.hpp"
+
 FreeFlyCam::FreeFlyCam(glm::vec3 startPos) :
     position(startPos), front(0.0f, 0.0f, -1.0f), up(0.0f, 1.0f, 0.0f), right(0.0f, 0.0f, 0.0f), yaw(-90.0f),
     pitch(0.0f), moveSpeed(15.0f), mouseSensitivity(0.1f) {
@@ -23,7 +25,7 @@ void FreeFlyCam::lookAtTarget(const glm::vec3& target) {
     updateVectors();
 }
 
-void FreeFlyCam::processKeyboard(const bool* keys, float deltaTime) {
+void FreeFlyCam::processKeyboard(const bool* keys, float deltaTime, rc::gameplay::Car* car) {
     float velocity = moveSpeed * deltaTime;
 
     moveSpeed = (keys[GLFW_KEY_LEFT_CONTROL] ? 60.0f : 15.0f);
@@ -39,6 +41,8 @@ void FreeFlyCam::processKeyboard(const bool* keys, float deltaTime) {
         position += glm::vec3(0.0f, 1.0f, 0.0f) * velocity;
     if (keys[GLFW_KEY_LEFT_SHIFT])
         position -= glm::vec3(0.0f, 1.0f, 0.0f) * velocity;
+    if (keys[GLFW_KEY_K])
+        car->kick(50.f);
 }
 
 void FreeFlyCam::processMouse(float xOffset, float yOffset) {

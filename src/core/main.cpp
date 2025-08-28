@@ -354,7 +354,7 @@ int main() {
         glUniform1f(glGetUniformLocation(shaderProgram, "maxH"), context.terrain.maxH());
 
         if (!io.WantCaptureKeyboard)
-            context.camera.processKeyboard(context.keys, context.deltaTime);
+            context.camera.processKeyboard(context.keys, context.deltaTime, &car);
         glm::mat4 view = context.camera.getViewMatrix();
 
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));

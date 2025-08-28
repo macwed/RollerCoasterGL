@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <glm/gtc/quaternion.hpp>
 #include <glm/vec3.hpp>
 #include <vector>
 
@@ -26,7 +27,7 @@ namespace rc::physics {
             i_ = 0;
         }
 
-        void sample(float sQuery, glm::vec3& pos, glm::vec3& T, glm::vec3& N, glm::vec3& B);
+        void sample(float sQuery, glm::vec3& pos, glm::vec3& T, glm::vec3& N, glm::vec3& B, glm::quat& q);
 
     private:
         const std::vector<common::Frame>* F_ = nullptr;

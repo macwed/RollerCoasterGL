@@ -25,7 +25,8 @@ namespace rc::gameplay {
         while (tLeft > 0.0f) {
             float dtSub = std::min(tLeft, h);
 
-            cursor_.sample(s, P, T, N, B);
+            glm::quat q;
+            cursor_.sample(s, P, T, N, B, q);
 
             float a_g = -g * glm::dot(up, T);
             float a_ext = extraAccel ? extraAccel(s, v) : 0.f;
@@ -60,12 +61,13 @@ namespace rc::gameplay {
             tLeft -= dtSub;
         }
         //orientacja, odwrócenie T przy jeździe do tyłu
-        cursor_.sample(s, P, T, N, B);
-        glm::vec3 Tf = (v > 0) ? T : -T;
-        glm::vec3 Bf = glm::normalize(glm::cross(Tf, N));
-        N            = glm::normalize(glm::cross(Bf, Tf));
+        glm::quat q;
+        cursor_.sample(s, P, T, N, B, q);
+        if (backwards_) {
+            q = q * glm::angleAxis(glm::pi<float>(), glm::vec3{0.f, 1.f, 0.f});
+        }
 
         pos_ = P;
-        orientation_ = glm::mat3(Tf, N, Bf);
+        orientation_ = glm::mat3_cast(q);
     }
 }

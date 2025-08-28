@@ -40,6 +40,9 @@ namespace rc::gameplay {
         std::size_t frameIdxCache_ = 0;
         glm::vec3 pos_{0.f};
         glm::mat3 orientation_{1.f};
+        bool backwards_ = false;
+        const float vOn = 0.12f;
+        const float vOff = 0.08f;
     };
 }
 

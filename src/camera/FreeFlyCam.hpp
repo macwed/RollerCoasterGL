@@ -7,6 +7,8 @@
 #include <glm/fwd.hpp>
 #include <glm/vec3.hpp>
 
+#include "gameplay/Car.hpp"
+
 
 class FreeFlyCam {
 public:
@@ -24,7 +26,7 @@ public:
 
     void lookAtTarget(const glm::vec3& target);
 
-    void processKeyboard(const bool* keys, float deltaTime);
+    void processKeyboard(const bool* keys, float deltaTime, rc::gameplay::Car* car);
     void processMouse(float xOffset, float yOffset);
     glm::mat4 getViewMatrix() const;
 
