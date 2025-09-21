@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <cmath>
 #include <glm/geometric.hpp>
+#include <glm/trigonometric.hpp>
+#include <glm/gtc/constants.hpp>
 
 #include "math/Spline.hpp"
 
@@ -14,7 +16,6 @@ namespace rc::physics {
     inline bool finite3(const glm::vec3& v) {
         return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
     }
-
 
     PathSampler::PathSampler(const math::Spline& spline, const std::vector<common::EdgeMeta>& e) :
         spline_(spline), edges_(e) {}
@@ -51,6 +52,31 @@ namespace rc::physics {
             return {pos, tan};
         }
 
+        auto segLenCR = spline_.arcLengthAtSegmentEnd(seg) - spline_.arcLengthAtSegmentStart(seg);
+        const float u = segLenCR > kEps ? std::clamp(sLocal / segLenCR, 0.0f, 1.0f) : 0.0f;
+
+        auto getP1P2 = [&](glm::vec3& P1, glm::vec3& P2) {
+            if (spline_.isClosed()) {
+                auto n = spline_.nodeCount();
+                P1 = spline_.getNode((seg + 1) % n).pos;
+                P2 = spline_.getNode((seg + 2) % n).pos;
+            } else {
+                P1 = spline_.getNode(seg + 1).pos;
+                P2 = spline_.getNode(seg + 2).pos;
+            }
+        };
+
+        if (seg < edges_.size()) {
+            const auto& em = edges_[seg];
+            if (em.type == common::EdgeType::Linear) {
+                glm::vec3 P1, P2; getP1P2(P1, P2);
+                const glm::vec3 pos = glm::mix(P1, P2, u);
+                glm::vec3 dir = P2 - P1;
+                glm::vec3 tan = (glm::dot(dir, dir) > kEps2) ? glm::normalize(dir) : glm::vec3(1.f, 0.f, 0.f);
+                return {pos, tan};
+            } // TODO Helix, Circular, Loop ale trudne są :(((
+        }
+
         glm::vec3 pos = spline_.getPositionAtS(s);
         glm::vec3 tan = spline_.getTangentAtS(s);
 
@@ -64,3 +90,4 @@ namespace rc::physics {
         return {pos, tan};
     }
 } // namespace rc::physics
+

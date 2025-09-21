@@ -4,11 +4,11 @@
 
 #ifndef APPCONTEXT_HPP
 #define APPCONTEXT_HPP
-//#include <glad.h>
 
 #include "../camera/FreeFlyCam.hpp"
 #include "../terrain/Terrain.hpp"
 
+enum class CamMode { Free, Ride, Chase };
 
 struct ProjectConfig {
     int windowWidth, windowHeight;
@@ -36,6 +36,11 @@ struct AppContext {
     bool cursorLocked = true;
 
     bool showTerrainPanel = false;
+
+    CamMode camMode = CamMode::Free;
+    glm::vec3 smoothedEye{0};
+    glm::vec3 smoothedTarget{0};
+    bool camInitialized = false;
 
     explicit AppContext(const ProjectConfig& cfg) :
         camera(cfg.camPos), terrain(cfg.mapWidth, cfg.mapHeight, cfg.noiseSeed) {}

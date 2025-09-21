@@ -36,14 +36,13 @@ namespace rc::gameplay {
         [[nodiscard]] float manualRollAtS(float s) const;
         [[nodiscard]] glm::vec3 positionAtS(float s) const;
         [[nodiscard]] glm::vec3 tangentAtS(float s) const;
-        [[nodiscard]] common::Frame frameAtS(float s) const;
 
         struct FrameLookup {
             std::size_t idx = 0;
             float lastS = 0.f;
         };
 
-        [[nodiscard]] float totalLength() const { return spline_.totalLength(); }
+        [[nodiscard]] float totalLength() const { return frames_.empty() ? spline_.totalLength() : frames_.back().s; }
 
         void setDs(float v) {
             ds_ = v;
@@ -54,9 +53,23 @@ namespace rc::gameplay {
             dirtyFrames_ = true;
         }
         void setClosed(bool v);
+        void setNodeRoll(std::size_t i, float roll);
         [[nodiscard]] bool isClosed() const {
             return spline_.isClosed();
         }
+
+        bool setLinearByNode(std::size_t nodeIdx);
+        bool setLinearBySegment(std::size_t segIdx);
+
+        bool setCircularByNode(std::size_t nodeIdx, glm::vec3 center, glm::vec3 normal,
+                               float radius, float turns = 0.f, bool shortest = true);
+        bool setCircularBySegment(std::size_t segIdx, glm::vec3 center, glm::vec3 normal,
+                                  float radius, float turns = 0.f, bool shortest = true);
+
+        bool setHelixByNode(std::size_t nodeIdx, glm::vec3 axisPoint, glm::vec3 axisDir,
+                             float radius, float pitch, float turns);
+        bool setHelixBySegment(std::size_t segIdx, glm::vec3 axisPoint, glm::vec3 axisDir,
+                               float radius, float pitch, float turns);
 
     private:
         math::Spline spline_;
@@ -79,6 +92,5 @@ namespace rc::gameplay {
         void buildFrames_();
     };
 } // namespace rc::gameplay
-
 
 #endif // TRACKCOMPONENT_HPP

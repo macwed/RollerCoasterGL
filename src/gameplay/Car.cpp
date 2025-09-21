@@ -14,6 +14,18 @@ namespace rc::gameplay {
         s = 0.0f;
     }
 
+    void Car::onTrackRebuilt(const TrackComponent& track) {
+        const auto& F = track.frames();
+        if (F.empty()) return;
+        cursor_.reset(&F, track.isClosed(), track.totalLength());
+        // clampuj s jeśli koniec otwartej trasy
+        float L = track.totalLength();
+        if (!track.isClosed()) {
+            if (s < 0.f) s = 0.f;
+            if (s > L)   s = L;
+        }
+    }
+
     void Car::update(float dt, const TrackComponent& track) {
         if (track.frames().empty()) return;
 
@@ -59,6 +71,15 @@ namespace rc::gameplay {
                 }
             }
             tLeft -= dtSub;
+        }
+        // prędkość min
+        if (minSpeedEnabled) {
+            float L = track.totalLength();
+            bool atEnd = (!track.isClosed()) && ((s <= 0.f + 1e-6f) || (s >= L - 1e-6f));
+            if (!atEnd) {
+                if (v >= 0.f) v = std::max(v, minSpeed);
+                else          v = std::min(v, -minSpeed);
+            }
         }
         //orientacja, odwrócenie T przy jeździe do tyłu
         glm::quat q;

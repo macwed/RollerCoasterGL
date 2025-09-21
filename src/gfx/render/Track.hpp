@@ -4,31 +4,47 @@
 
 #ifndef TRACK_HPP
 #define TRACK_HPP
-#include <glm/vec3.hpp>
-#include <span>
-#include <vector>
 
-#include "gfx/render/DrawableMixin.hpp"
+#include <vector>
+#include <glm/glm.hpp>
+#include "gfx/render/Mesh.hpp"
+#include "gfx/geometry/RailGeometryBuilder.hpp"
+#include "gfx/geometry/SupportGeometryBuilder.hpp"
+#include "common/TrackTypes.hpp"
+#include "terrain/Terrain.hpp"
 
 namespace rc::gfx::render {
-    class Track : public DrawableMixin<Track> {
-    public:
-        Track();
-        ~Track();
 
-        void setMesh(std::span<const glm::vec3> vertices, std::span<const uint32_t> indices);
-        void uploadToGPU();
-        void draw() const;
-        void releaseGL();
+    struct InfraParams {
+        float beamDs       = 0.60f; // poprzeczka po łuku
+        float beamThick    = 0.08f;
+        float beamHeight   = 0.06f;
+        float supportHoriz = 3.0f;  // słup co 3 m po ziemi (rzut poziomy)
+        float supportRadius= 0.06f;
+        int   supportSides = 12;
+        float minClearance = 0.25f; // minimalna wysokość słupa
+    };
+
+    class Track {
+    public:
+        void build(const std::vector<common::Frame>& frames,
+                   const geometry::RailParams& railParams,
+                   const Terrain& terrain,
+                   const InfraParams& infra);
+
+        void uploadToGPU()   { steel_.uploadToGPU(); }
+        void draw() const    { steel_.draw(); }
+        void releaseGL()     { steel_.release(); }
 
     private:
-        std::vector<glm::vec3> points_;
-        std::vector<std::uint32_t> indices_;
-        unsigned vbo_, vao_, ibo_;
+        static float totalLength(const std::vector<common::Frame>& fr) {
+            if (fr.empty()) return 0.f;
+            return fr.back().s; // s - długość łuku
+        }
 
-        // no extra state yet; normals/uv to be added with future shaders
+        Mesh steel_; // szyny + poprzeczki + słupy -- jeden drawcall
     };
-} // namespace rc::gfx::render
 
+} // namespace rc::gfx::render
 
 #endif // TRACK_HPP

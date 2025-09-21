@@ -166,7 +166,16 @@ namespace rc::physics {
                 f.B = glm::normalize(glm::cross(f.T, f.N));
                 f.N = glm::normalize(glm::cross(f.B, f.T));
             }
-
+            // po modyfikacji N/B aktualizacja kwaternionów
+            for (std::size_t i = 0; i < frames.size(); ++i) {
+                glm::mat3 R(frames[i].T, frames[i].N, frames[i].B);
+                glm::quat qNew = glm::quat_cast(R);
+                if (i > 0) {
+                    if (glm::dot(frames[i-1].q, qNew) < 0.0f) qNew = -qNew;
+                }
+                frames[i].q = qNew;
+            }
+            // spójność na styku
             frames.back().N = frames.front().N;
             frames.back().B = frames.front().B;
             frames.back().q = frames.front().q;

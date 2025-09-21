@@ -19,7 +19,7 @@ namespace rc::gameplay {
         float m = 400.f; //masa
         float g = 9.81f;
         float muRoll = 0.002f; //tarcie toczne
-        float kAir = 0.02f; // opór powietrza
+        float kAir = 0.01f; // opór powietrza
         float vMax = 550.f;
         float vStopEps = 0.02f; //próg dla zatrzymania
         glm::vec3 up = {0.f, 1.f, 0.f};
@@ -31,9 +31,13 @@ namespace rc::gameplay {
         void kick(float v0) {v = v0;}
 
         void bindTrack(const TrackComponent& track);
+        void onTrackRebuilt(const TrackComponent& track);
         void update(float dt, const TrackComponent& track);
         [[nodiscard]] glm::vec3 getPos() const { return pos_; }
         [[nodiscard]] glm::mat3 getOrientation() const { return orientation_; }
+        // min-speed assist
+        bool minSpeedEnabled = false;
+        float minSpeed = 20.0f;
 
     private:
         physics::FrameCursor cursor_;

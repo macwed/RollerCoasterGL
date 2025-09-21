@@ -1,0 +1,497 @@
+MANUAL: RollerCoasterGL — opis działania projektu
+
+SPIS TREŚCI
+- 1) Ogólny opis i zasada działania
+- 2) Struktura i zależności (funkcja po funkcji)
+  • 2.1) src/core/main.cpp (inicjalizacja, pętla, rysowanie, GUI)
+  • 2.2) src/core/AppContext.hpp (kontekst aplikacji)
+  • 2.3) Teren: Terrain, SimplexNoise, SaveHeightmap
+  • 2.4) Splajn: rc::math::Spline (API i LUT długości)
+  • 2.5) Próbkowanie: rc::physics::PathSampler
+  • 2.6) Ramki: rc::physics::PTF (buildFrames, roll)
+  • 2.7) Tor: rc::gameplay::TrackComponent (rebuild) i rc::gfx::render::Track (build)
+  • 2.8) Geometria toru: RailGeometryBuilder, SupportGeometryBuilder
+  • 2.9) Render-infra: Mesh, Texture
+  • 2.10) Ruch wagonika: rc::gameplay::Car i rc::physics::FrameCursor
+  • 2.11) Kamera: FreeFlyCam (skrót)
+- 3) Dokładnie: tworzenie toru (warstwa po warstwie)
+- 4) Dlaczego wagonik jedzie i skąd wie, gdzie jest
+- 5) OpenGL: VAO/VBO/EBO i rysowanie
+- 6) Shadery — szczegółowo (linijka po linijce)
+- 7) Uwagi końcowe i sprzątanie zasobów
+
+1) Ogólny opis i zasada działania
+- Projekt renderuje prosty świat rollercoastera: teren, tor (szyny + infrastruktura) oraz wagonik jadący po torze.
+- Ścieżka toru opisana jest geometrycznie przez splajn Catmull–Rom (centripetal). Z tej krzywej wyznaczana jest długość łuku i parametry lokalnej ramki (T, N, B) wzdłuż trasy.
+- Na bazie pozycji i orientacji wzdłuż toru generowana jest siatka szyn i belek poprzecznych (oraz słupów) i wysyłana do GPU. Teren jest generowany proceduralnie i także trzymany w buforach GPU.
+- Wagonik porusza się po torze dzięki prostemu modelowi fizycznemu (energia potencjalna, grawitacja rzutowana na kierunek toru, opory), korzystając z ramki toru do ustawienia orientacji.
+- Rendering: OpenGL 4.x (rdzeń), shadery w GLSL. Jest osobny shader dla toru i osobny, uproszczony shader dla terenu (z mgłą). Wagonik ma najprostszy shader jednokolorowy.
+- Interakcja: ImGui (panele do edycji węzłów, roll, parametry terenu, itp.). Klawisze do przełączania trybów kamery i drobnych funkcji.
+
+2) Struktura i zależności (funkcja po funkcji – rozpisane)
+2.1) src/core/main.cpp
+- loadShaderSource(path): zwykłe czytanie pliku do stringa (ifstream + stringstream).
+- compileShader(type, source): tworzy shader (glCreateShader), ustawia źródło, kompiluje, loguje błędy.
+- createShaderProgram(vertSrc, fragSrc): kompiluje V/F, linkuje program, sprawdza log, sprząta shadery.
+- glfwErrorCallback / framebuffer_size_callback: diagnostyka i zmiana viewportu.
+- keyCallback: zapis stanu klawiatury w AppContext::keys; ESC zamyka okno.
+- mouseCallback: przekazuje przesunięcie do kamery, jeśli kursor zablokowany i ImGui nie przechwytuje.
+- main():
+  • inicjalizacja GLFW/GLAD, opcje GL (MSAA, sRGB, depth test), rejestracja callbacków,
+  • wczytanie shaderów/tekstur, przypięcie slotów (samplery),
+  • zbudowanie terenu (generate + upload),
+  • stworzenie TrackComponent, dodanie węzłów do Spline, rebuild i build toru (Track::build),
+  • inicjalizacja wagonika (box+koła) i shader „car”,
+  • pętla: czas delta, GUI, kamera (Free/Ride/Chase), rysowanie terenu → toru → wagonika,
+  • sprzątanie: deleteProgram/Textures/VAO/VBO/EBO i releaseGL.
+
+2.2) src/core/AppContext.hpp
+- struct ProjectConfig: parametry okna, kamery, terenu (seed, skala szumu).
+- struct AppContext: kamera, teren, stany klawiszy, czas, tryb kamery, wektory smoothingu kamery (Ride/Chase), flagi GUI.
+
+2.3) Terrain i szum
+- Terrain::generate(...) – tworzy mapę wysokości wywołując SimplexNoise w siatce (parametry: skala, częstotliwość, oktawy, itp.).
+- Terrain::uploadToGPU() – buduje VBO/EBO/VAO dla siatki terenu (pozycje, normalne, UV).
+- Terrain::draw() – glBindVertexArray + glDrawElements.
+- SaveHeightmap – zapis heightmapy do pliku (narzędzie pomocnicze).
+
+2.4) math::Spline (ważniejsze funkcje)
+- addNode/insertNode/moveNode/removeNode/setNodeRoll – zarządzanie węzłami.
+- segmentCount(), isClosed(), setClosed() – topologia.
+- getPosition(seg,t), getTangent(seg,t) – Catmull–Rom centripetal; w środku liczone parametry „t0..t3”, tangenty m1/m2 i Hermite.
+- rebuildArcLengthLUT(minSamples):
+  • Dla segmentu próbkowanie równomierne po u, akumulowana długość (sumy odległości kolejnych punktów).
+  • Zapis (u, s_local, pos) do LUT oraz totalLength_ i prefixy.
+- locateSegmentByS(s): zamiana s→(seg,s_local) przez binary search po segPrefix_.
+- getPositionAtS(s)/getTangentAtS(s): szuka pary próbek po s_local, estymuje u, 2× Newton refine, potem Hermite.
+
+2.5) physics::PathSampler
+- PathSampler::PathSampler(spline, edgeMeta) – przechowuje referencje.
+- sampleAtS(s):
+  • Klamrowanie/zawijanie s zgodnie z isClosed i totalLength,
+  • locateSegmentByS(s), wyznaczenie u = s_local / length_segmentu,
+  • jeśli EdgeMeta[seg] = Linear/Circular/Helix → pos/tan z formuł analitycznych; inaczej z Spline (getPositionAtS / getTangentAtS),
+  • zabezpieczenia eps przy normalizacji.
+
+2.6) physics::PTF (Parallel Transport Frames)
+- buildFrames(sampler, ds, globalUp, callbacks):
+  • startowa ramka (T0, N0≈globalUp odcięte o T, B0 = T×N, doprecyzowanie ortonormalności),
+  • dla s w (0..L): oblicz P,T i obróć N_prev do N wokół osi v=T_prev×T o kąt φ (transport równoległy); wylicz B i odśwież N,
+  • jeśli stacja: N≈globalUp (twardo) lub blend na krawędziach (feather),
+  • ręczny roll: obrót N wokół T o theta(s),
+  • kwaternion q z (T,N,B) i korekta znaku względem poprzedniego,
+  • dla zamkniętego: kompensacja skrętu B_end→B_start i ponowne wyliczenie q dla spójności.
+
+Dodatek: PTF i PathSampler — szczegóły działania i punkty wywołań
+
+PathSampler — szczegóły
+- Cel: dla podanego „s po łuku” zwrócić pozycję C(s) i styczną T(s). To jest jedyne „źródło prawdy” geometrii toru widziane przez fizykę i PTF.
+- Wejście: referencje do rc::math::Spline oraz vector<EdgeMeta> (metadane krawędzi, np. Linear/Circular/Helix per segment).
+- Krok 1 (normalizacja s):
+  • Długość całkowita L = spline.totalLength().
+  • Jeśli tor zamknięty: s = mod(s, L) w [0..L). Jeśli otwarty: s = clamp(s, 0..L).
+- Krok 2 (namierz segment):
+  • locateSegmentByS(s) z Spline → (seg, s_local). Dla CR mam też długość segmentu len_seg = arcLengthAtSegmentEnd - Start.
+  • Ustalam „u” jako u = clamp(s_local / len_seg, 0..1). To jest param wyłącznie do celów pomocniczych.
+- Krok 3 (geometria segmentu):
+  • Jeśli EdgeMeta[seg].type == Linear: P1 = node(i+1), P2 = node(i+2) (uwzględniając wrap dla closed). pos = mix(P1, P2, u), tan = normalize(P2-P1).
+  • Circular: dane z meta: center C, normal n (znormalizować), radius R (jeśli 0 to z P1), X/Y jako ortonormalna baza w płaszczyźnie (X w kierunku od C do P1, Y = n×X). theta1=0, theta2 z proj P2 w bazie (atan2), d = kąt między P1 a P2 (skrócony do (−π,π] + ewentualne turns). theta = theta1 + d*u. pos = C + (cosθ X + sinθ Y) R, tan ∝ d/dθ → (−sinθ X + cosθ Y) (potem normalizacja). 
+  • Helix: oś a (helixAxisDir), punkt A0 (helixAxisPoint), promień R i skok pitch. Buduję bazę U,V ⟂ a (np. z up). Kąt startowy z P1, ang = ang1 + (2π*turns)*u. Z = (pitch/2π)*(ang - ang1). pos = A0 + a*Z + (cos ang U + sin ang V) * R. tan = pochodna po „ang” (kierunek sumy składowej po osi i obwiedni koła), potem normalizacja.
+  • W innych przypadkach (domyślnie CR): pos = spline.getPositionAtS(s), tan = spline.getTangentAtS(s) (już z LUT i Newton refine). Jeśli tan bliski 0, biorę różnicę pozycji z s±Δs i normalizuję (zabezpieczenie).
+- Zwraca Sample {pos, tan}. Wszystkie NORMy zabezpieczone eps (kEps, kEps2).
+- Gdzie wywołane: wyłącznie w PTF::buildFrames (główna pętla po s i na końcu dla s=L). Reszta systemu opiera się na frames (a nie na bezpośrednim PathSamplerze).
+
+PTF — szczegóły
+- Cel: policzyć wzdłuż toru ramki ortonormalne {T, N, B} oraz odpowiadające im kwaterniony q, które są gładkie i nie „rotują” niepotrzebnie wokół T (to jest „parallel transport”).
+- Wejście: PathSampler (daje pos/tan), krok ds, globalUp (np. (0,1,0)), callbacki z TrackComponent: isInStation(s), stationEdgeFadeWeight(s) (feather), manualRollAtS(s).
+- Start:
+  • P0 = sampler.sampleAtS(0).pos, T0 = normalize(sampler.sampleAtS(0).tan).
+  • N0_raw = globalUp − T0 * dot(globalUp, T0). Jeżeli długość ≈0 (np. T0≈globalUp), biorę awaryjny wektor (np. (1,0,0)) i powtarzam operację.
+  • N0 = normalize(N0_raw), B0 = normalize(T0×N0), N0 = normalize(B0×T0) (ortogonizacja Gram-Schmidt – dwa kroki dla stabilności). Pierwsza ramka trafia do wektora frames.
+- Iteracja co ds (od s=ds do L (dla closed do <L)):
+  • P,T = sampler.sampleAtS(s). Weź T_prev, N_prev, B_prev z poprzedniej ramki.
+  • v = T_prev×T, sinφ = |v|, cosφ = clamp(dot(T_prev,T), −1..1). Jeśli sinφ>=eps: oś = v/sinφ, φ = atan2(sinφ, cosφ), N_rot = rotate(N_prev, φ wokół osi), B = normalize(T×N_rot), N = normalize(B×T). Jeśli sinφ≈0 i cosφ<−0.9999, znaczy T≈−T_prev → „odwróć” N,B.
+  • Stacje: jeśli isInStation(s) → N≈globalUp (wyliczam Ng = normalize(globalUp − T*dot)), B=normalize(T×Ng), N=normalize(B×T). Jeśli nie w środku stacji, ale stationEdgeFadeWeight(s)>0 → blend N z Ng wagą w (smoothstep), potem popraw B, N jak wyżej.
+  • Ręczny roll: jeśli manualRollAtS(s)≠0 → rotacja N wokół T o roll(s): N=rot(N, T, roll), B=normalize(T×N), N=normalize(B×T).
+  • q: macierz R z kolumn (T,N,B) → q = quat_cast(R). Jeśli dot(q_prev,q)<0, q = −q (żeby nie robić skoków 180°). Dopisz ramkę do listy.
+- Ostatnia ramka (s=L): analogicznie jak iteracja, z opieką nad przypadkiem T_end≈−T_prev.
+- Dla toru zamkniętego:
+  • oblicz signedAngleAround(B_end, B_start, T_start) = Δθ. Dla każdej ramki f rotuj N wokół T o φ = Δθ * (f.s / L), popraw B i N. To „odkręcenie” rozkłada różnicę równomiernie.
+  • Na końcu wyrównuję ostatnią ramkę do pierwszej: N_end=N_start, B_end=B_start, q_end=q_start. Dodatkowo przeliczam q dla wszystkich po korekcie, znów pilnując antypodalności.
+- Gdzie wywołane: wyłącznie w TrackComponent::buildFrames_ (czyli w TrackComponent::rebuild() → buildFrames_). Później frames korzystają z FrameCursor (Car i rendering toru już tylko bazują na frames).
+
+
+2.7) gameplay::TrackComponent
+- rebuild():
+  • jeśli splajn dirty → rebuildArcLengthLUT + sync meta,
+  • buildStationIntervals_ (opcjonalnie),
+  • rebuildRollKeys_ (unwrap kątów + sort + merge bliskich s),
+  • buildFrames_ (PathSampler + PTF + callbacks isInStation/stationEdgeFadeWeight/manualRollAtS).
+- manualRollAtS(s): interpolacja po najkrótszym łuku (wrap (−π,π]).
+- edge meta settery: setLinearBySegment/Node, setCircular..., setHelix...
+
+2.8) Geometria toru
+- RailGeometryBuilder::build(p):
+  • wyznacza liczbę „pierścieni” (ring) po ramkach, buduje vertexy (dwa pierścienie dla lewej/prawej szyny) w płaszczyźnie (N,B),
+  • indeksuje quady → trójkąty między kolejnymi ramkami,
+  • zapisuje UV wzdłuż s (p.texScaleV) i wokół przekroju.
+- SupportGeometryBuilder:
+  • addBeamBox(L,R,thick,height) – box łączący szyny,
+  • addSupportCylinder(top,bottom,r,sides) – pionowy cylinder do ziemi,
+  • addFootDisk(center, R, sides) – dysk przy ziemi.
+
+2.9) Render-infra
+- Mesh:
+  • setData(vertices, indices) – zapis danych w pamięci CPU,
+  • uploadToGPU() – tworzy/binduje VAO, VBO, EBO; ustawia atrybuty (0:pos,1:nrm,2:uv),
+  • draw() – glBindVertexArray + glDrawElements,
+  • release() – deleteBuffers/VertexArrays.
+- Texture:
+  • LoadTexture2D(path, srgb) – wczytuje teksturę 2D, ustawia filtry, wrap, SRGB dla albedo.
+
+Szczegóły: Mesh.hpp
+- Struktura: klasa RAII trzymająca CPU‑side kopię danych (cpuVerts_, cpuIdx_) oraz GPU‑side uchwyty (vao_, vbo_, ebo_). Dodatkowo indexCount_ i flaga uploaded_.
+- geometry::Vertex (z RailGeometryBuilder.hpp):
+  • składa się z pos (vec3), normal (vec3), uv (vec2) – razem 8 floatów; stride = sizeof(geometry::Vertex).
+- setData(verts, indices):
+  • kopiuje dane na CPU (std::vector), ustawia indexCount_ i uploaded_=false (sygnał, że trzeba ponownie zrobić upload przy najbliższym wywołaniu uploadToGPU()).
+- uploadToGPU():
+  • jeśli już uploaded_, wyjdź; najpierw release() (czyści stare VAO/VBO/EBO jeśli były),
+  • glGenVertexArrays(1,&vao_); glGenBuffers(1,&vbo_); glGenBuffers(1,&ebo_),
+  • glBindVertexArray(vao_);
+  • glBindBuffer(GL_ARRAY_BUFFER, vbo_); glBufferData(GL_ARRAY_BUFFER, sizeOf(verts), ptrVerts, GL_STATIC_DRAW),
+  • glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_); glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeOf(indices), ptrIdx, GL_STATIC_DRAW),
+  • Ustawienie atrybutów:
+    – atrybut 0: pozycja (3 x float), pointer = offsetof(Vertex,pos),
+    – atrybut 1: normalna (3 x float), pointer = offsetof(Vertex,normal),
+    – atrybut 2: UV (2 x float), pointer = offsetof(Vertex,uv),
+    (wszystkie z GL_FALSE, stride = sizeof(Vertex)),
+  • glBindVertexArray(0); uploaded_=true.
+- draw():
+  • jeśli nie uploaded_, wyjdź; glBindVertexArray(vao_); glDrawElements(GL_TRIANGLES, indexCount_, GL_UNSIGNED_INT, nullptr); glBindVertexArray(0).
+- release():
+  • glDeleteBuffers(ebo_), glDeleteBuffers(vbo_), glDeleteVertexArrays(vao_); zeruje uchwyty i uploaded_=false.
+- Życie obiektu:
+  • ~Mesh() woła release() (RAII) – dzięki temu nie zapomnimy o czyszczeniu, gdy obiekt zniknie.
+- Po co CPU‑side kopia?:
+  • Pozwala przebudować i ponownie załadować mesh bez trzymania plików źródłowych; przydaje się, gdy track jest rebuildowany.
+- Wydajność:
+  • Dane wysyłane z GL_STATIC_DRAW (tor nie przebudowuje się w każdej klatce),
+  • Jeden VAO/EBO/VBO na „stali” – jeden drawcall (oszczędza CPU i sterownik GL).
+
+2.10) Car i FrameCursor
+- Car::bindTrack(track) – reset kursora na frames i totalLength, s=0.
+- Car::onTrackRebuilt(track) – reset wskazania na nowe frames bez resetu s.
+- Car::update(dt, track) – integracja s i v, substepping, siły (grawitacja/opory/tarcie), minSpeed (poza końcami toru otwartego); na koniec pobiera P/T/N/B/q z FrameCursor.
+- FrameCursor::sample(s) – utrzymuje indeks i (cache), przesuwa go zgodnie z s, robi slerp(q) i lerp(pos).
+
+2.11) FreeFlyCam (skrót)
+- processKeyboard(keys, dt, &car) – porusza kamerę w trybie Free (w Ride/Chase kamera pochodzi z pozycji wagonika + offsety),
+- processMouse(dx,dy) – yaw/pitch,
+- getViewMatrix() – mat4 „lookAt” z pozycji + front/up.
+
+FreeFlyCam — działanie i macierze (pełny opis)
+- Wektory kamery: position, front, right, up oraz kąty yaw/pitch; updateVectors() liczy front z yaw/pitch i poprawia right/up (cross‑producty z worldUp=(0,1,0)).
+- processMouse(dx,dy): yaw += dx * sensitivity; pitch += dy * sensitivity (z limitem pitch), potem updateVectors().
+- processKeyboard(keys, dt): W/S po osi front; A/D po osi right; (opcjonalnie) góra/dół po up. getViewMatrix(): glm::lookAt(position, position+front, up).
+
+Macierze M/V/P i rzut w GL
+- Model (M): lokalny→świat (u nas wagonik ma M = T(P)*R(q)*S, tor/teren ≈ I).
+- View (V): świat→kamera – glm::lookAt.
+- Projection (P): glm::perspective(fov, aspect, zNear, zFar). Shader: gl_Position = P * V * M * vec4(localPos,1). Normal matrix = mat3(transpose(inverse(M))).
+
+Szczegóły: rc::gfx::render::Track (OpenGL/GPU)
+- Track::build(frames, railParams, terrain, infra):
+  • Tworzy MeshOut i podaje go do RailGeometryBuilder (szyny),
+  • Tworzy FrameCursor po frames i próbkami co beamDs/supportHoriz buduje belki/słupy przez SupportGeometryBuilder,
+  • Składa Mesh steel (CPU) → steel.setData(vertices, indices) → steel_.release() → steel_ = move(steel) → steel_.uploadToGPU().
+- Mesh::uploadToGPU (co faktycznie trafia do GL): glGenVertexArrays, glBindVertexArray; glGenBuffers dla VBO/EBO; glBindBuffer + glBufferData (dane na GPU); glEnableVertexAttribArray(0..2) + glVertexAttribPointer (pos/nrm/uv); glBindVertexArray(0).
+- Track::draw(): steel_.draw() → glBindVertexArray(VAO) → glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0) → glBindVertexArray(0).
+- Track::releaseGL(): steel_.release() → glDeleteBuffers(VBO/EBO), glDeleteVertexArrays(VAO).
+- W pętli renderu (main):
+  • glUseProgram(trackProgram), bind tekstur stali (diffuse/specular),
+  • ustaw jednolity: macierze (model/view/projection), światła (kierunkowe + punktowe od wagonika) i kamerę (uViewPos),
+  • track.draw() – jeden drawcall dla całej „stali”.
+- processKeyboard(keys, dt, &car) – porusza kamerę w trybie Free (w Ride/Chase kamera pochodzi z pozycji wagonika + offsety),
+- processMouse(dx,dy) – yaw/pitch,
+- getViewMatrix() – mat4 „lookAt” z pozycji + front/up.
+
+3) Dokładnie: tworzenie toru (warstwa po warstwie)
+3.1) Splajn Catmull–Rom (math::Spline)
+- Wejściem są węzły: Node {pos, roll, (TCB niewykorzystywane)}. Dodajemy przez addNode/insertNode, można też je przesuwać (moveNode) i ustawiać roll (setNodeRoll).
+- Catmull–Rom w wersji „centripetal” (alpha = 0.5) – to poprawia stabilność (mniejszy overshoot) względem „uniform”. getPosition(seg, t) i getTangent(seg, t) liczą odpowiednio pozycję i unit-tangent w segmencie [i..i+1].
+- ArcLength LUT: rebuildArcLengthLUT(minSamplesPerSegment).
+  • Dla każdego segmentu próbkujemy u równomiernie (np. 64 razy), liczymy, ile przychodzi długości od poprzedniej próbki. Sumujemy – mamy length segmentu i tabelę (u, s_local, pos).
+  • Wektor prefixów segPrefix_ sumuje długości segmentów, a totalLength_ to suma końcowa.
+  • Dzięki LUT zamieniamy s → (segment, s_local) i interpolujemy pozycję/tangent dla „parametru po łuku”.
+- locateSegmentByS(s):
+  • Zawija s dla pętli, albo klamruje dla toru otwartego.
+  • Binary search po segPrefix_: zwraca indeks segmentu i s_local wewnątrz segmentu.
+- getPositionAtS(s)/getTangentAtS(s):
+  • W LUT dla segmentu znajdujemy dwa sąsiednie punkty „po s” i wstępnie estymujemy u przez interpolację.
+  • Newton-refine (2 iteracje) poprawia u, aby odległość po łuku bardziej pasowała.
+  • Z takiego u liczymy getPosition/getTangent (tangent normujemy i mamy T).
+
+3.2) PathSampler (sampleAtS)
+- Dla s zwracamy Sample {pos, tan}. Normalnie idziemy po splajnie (getPositionAtS/getTangentAtS).
+- Gdy dla segmentu ustawiono typ (EdgeMeta):
+  • Linear – pos = mix(P1,P2,u), tan = kierunek P2–P1.
+  • Circular – łuk w płaszczyźnie (center+normal), kąt theta od P1 do P2 (z krótkim łukiem + ewentualne turns), tan = pochodna po θ.
+  • Helix – oś (axisPoint+axisDir), promień, skok, liczba obrotów; pos i tan z równań helisy.
+- Zabezpieczenia eps kiedy długości są małe.
+
+3.3) TrackComponent (rebuild i roll)
+- Kolejność:
+  • Jeśli splajn zmieniony → rebuildArcLengthLUT + synchronizacja metadanych (nodeMeta/edgeMeta).
+  • buildStationIntervals_ (opcjonalnie, jak chcesz stacje),
+  • rebuildRollKeys_: zamiana węzłów z roll na listę (s, roll) po łuku; robię „unwrap” kątów (zamiast przeskakiwania ±π) – to daje ciągłość.
+  • buildFrames_: wywołanie PTF::buildFrames z PathSamplerem i callbackami (isInStation, fade dla krawędzi stacji, manualRollAtS).
+- manualRollAtS(s):
+  • Znajduję odcinek [k1,k2] po s, biorę r1 i r2 (radiany) i interpoluję po najkrótszym łuku (wrap do (−π, π]).
+  • Dla toru zamkniętego zawijam s do [0, L).
+
+3.4) PTF::buildFrames (ramki)
+- Start: N0 to globalUp „wyrównany” do T0 (odejmuję składową wzdłuż T i normuję). B0 = T×N; jeszcze raz N = B×T dla ortonormalności.
+- Dla kolejnych s: transportuj N wzdłuż zmiany T (przez obrót wokół osi T_prev×T o kąt φ), potem wylicz B, popraw ortonormalność.
+- Stacje: gdy w stacji – ustaw N≈globalUp (z zachowaniem ortonormalności), przy krawędziach stacji blend wagiem „feather”.
+- Ręczny roll: N = rotateAround(T, roll) i popraw B.
+- Kwaternion q z macierzy (T,N,B), z korektą znaku (ciągłość dot(q_prev,q) ≥ 0).
+- Dla toru zamkniętego: kompensacja skrętu (różnica kąta B_end vs B_start wokół T0) – „odkręcam” płynnie wzdłuż s. Potem przeliczam kwaterniony całej pętli i wyrównuję ostatnią ramkę do pierwszej (N/B/q).
+
+3.5) Track::build (mesh toru)
+- Szyny: RailGeometryBuilder – na każdej ramce odkładam profil koła (ringSides+1) w płaszczyźnie (N,B) w dwóch pozycjach (± B * gauge/2). Łączę profile między kolejnymi ramkami w quady → trójkąty.
+- Beleczki: co stały krok po łuku (beamDs) biorę P, N, B (z frames) i tworzę box łączący lewą/prawą szynę.
+- Słupy: co supportHoriz po rzutowaniu na poziom; sprawdzam odległość od terenu i dodaję cylinder do ziemi.
+- Wynikowe vertexy/indeksy idą do Mesh i dalej na GPU (VBO/EBO/VAO).
+Szczegóły: RailGeometryBuilder i SupportGeometryBuilder
+- RailGeometryBuilder:
+  • Domknięcie: jeżeli tor zamknięty i frames.back().pos ≈ frames.front().pos, to ostatni profil nie jest powielany (closedEff). ringsTotal = (closedEff ? frames.size()−1 : frames.size()), ring=ringSides+1.
+  • Dla każdej ramki wyznaczam środki szyn: centerL=P+B*(gauge/2), centerR=P−B*(gauge/2). Przekrój koła leży w płaszczyźnie (N,B): circDir = cos(2πu)B + sin(2πu)N. Vertex: pos = center± + circDir*railRadius; normal=circDir; uv=(v=s*texScaleV, u).
+  • Indeksy: łączę sąsiednie pierścienie (i→j) w quady (dwie trójkąty) osobno dla lewej/prawej szyny.
+  • Na styku pętli (closedEff) profil może użyć N,B startowych (żeby nie było obrotu profilu na ostatnim pierścieniu).
+- SupportGeometryBuilder:
+  • Belka: oriented box między A i B. Oś T=normalize(B−A), X=normalize(cross(up,T)) (lub cross z (1,0,0) jeśli T≈up), Y=cross(T,X). Z tych baz wyznaczam 8 rogów i składam 6 ścian (quady) z normalami per-face.
+  • Słup: cylinder top→bottom. Oś T, baza X,Y ⟂ T. Dwa pierścienie (sides+1), boczna siatka jako quady → trójkąty. 
+  • Stopa: dysk poziomy (triangle fan) – centrum + wianuszek.
+  • Próbkowanie: belki co beamDs po łuku; słupy co supportHoriz „po ziemi” (ds po łuku = supportHoriz / max(cosPhi,0.05), gdzie Ty=dot(T,up), cosPhi=√(1−Ty²)).
+
+Pseudokod (RailGeometryBuilder)
+  // wejście: frames, params: gauge, r=railRadius, ringSides, closed
+  ring = ringSides + 1
+  ringsTotal = (closed && almostEqual(frames.back.pos, frames.front.pos)) ? frames.size()-1 : frames.size()
+  for i in [0..ringsTotal-1]:
+    P = frames[i].pos; N = frames[i].N; B = frames[i].B
+    centerL = P + B*(gauge*0.5); centerR = P - B*(gauge*0.5)
+    for rIdx in [0..ring-1]:
+      u = rIdx / (ring-1)
+      angle = 2*pi*u
+      circDir = cos(angle)*B + sin(angle)*N
+      posL = centerL + circDir*r
+      posR = centerR + circDir*r
+      normal = circDir
+      uv = (frames[i].s * texScaleV, u)
+      pushVertex(posL, normal, uv)
+      pushVertex(posR, normal, uv)
+  // indeksy (quady między i a j=next(i))
+  for i in [0..ringsTotal-2 + (closed?1:0)]:
+    j = (i+1==ringsTotal && closed) ? 0 : i+1
+    for rIdx in [0..ring-2]:
+      // lewa szyna
+      a = vidx(i, left, rIdx)
+      b = vidx(i, left, rIdx+1)
+      c = vidx(j, left, rIdx)
+      d = vidx(j, left, rIdx+1)
+      pushTri(a,b,c); pushTri(b,d,c)
+      // prawa szyna analogicznie
+
+Tabelka indeksowania quadów (na jedną „taśmę” rIdx→rIdx+1):
+  a = (i, r)
+  b = (i, r+1)
+  c = (j, r)
+  d = (j, r+1)
+  Trójkąty: (a,b,c) i (b,d,c)
+  Uwaga: to samo powtarzamy dla lewej i prawej szyny (inne „warstwy” w buforze vertexów).
+
+Ustalanie UV i normalnych:
+  • Normalna profilu walca = circDir = cos(2πu)B + sin(2πu)N (zawsze jednostkowa – przydaje się w oświetleniu).
+  • UV: 
+    – v (wzdłuż toru) = frames[i].s * texScaleV (czyli idzie liniowo po długości łuku),
+    – u (wokół przekroju) = rIdx/(ring−1) (ostatnia próbka = 1.0, duplikat pierwszego punktu profilu).
+
+Pseudokod (SupportGeometryBuilder — belka)
+  // box między A i B
+  T = normalize(B-A)
+  up = (0,1,0)
+  X = normalize( (abs(dot(T,up))<0.99) ? cross(up,T) : cross((1,0,0),T) )
+  Y = normalize(cross(T,X))
+  hL = T*(L*0.5); hx = X*(thick*0.5); hy = Y*(height*0.5)
+  // 8 rogów: (±hL ±hx ±hy) w stosownej kombinacji
+  buildQuadFacesWithNormals()
+
+Pseudokod (SupportGeometryBuilder — słup)
+  // cylinder boków (bez dekli)
+  T = normalize(bottom-top)
+  X = normalize( (abs(dot(T,up))<0.99) ? cross(up,T) : cross((1,0,0),T) )
+  Y = normalize(cross(T,X))
+  for ring in {top,bottom}:
+    C = (ring==top? top : bottom)
+    for i in 0..sides:
+      ang = 2*pi * (i/sides)
+      n = cos(ang)*X + sin(ang)*Y
+      p = C + r*n
+      pushVertex(p, n, uv)
+  for i in 0..sides-1:
+    a=i; b=i+1; c=offset+i; d=offset+i+1
+    pushTri(a,b,c); pushTri(b,d,c)
+
+ASCII – przekrój profilu (N,B) i dwie szyny względem B (gauge):
+  N ^
+    |
+    o   o   // o – lewa/prawa szyna (centra), od środka przesunięte o ±(gauge/2) wzdłuż B
+    |
+    +----> B
+
+4) Dlaczego wagonik jedzie i skąd wie, gdzie jest
+- Parametry ruchu wzdłuż łuku s: Car::update integruje w czasie ṡ = v, v̇ = a.
+- Siły (skalary, 1D po T):
+  • grawitacja: a_g = −g * dot(up, T),
+  • opór powietrza: a_air = −kAir * v * |v|,
+  • tarcie toczne: a_roll ≈ −muRoll * g (z zachowaniem kierunku i progiem ruszenia),
+  • zewnętrzne (opcjonalnie): extraAccel(s, v) – tu nieużywane.
+- Integracja co mały krok h (substepping), z klamrowaniem s dla toru otwartego (na krańcach zatrzymanie).
+- Orientacja i pozycja w świecie: FrameCursor.sample(s) – zwraca P, T, N, B i q (interpolacja kwaternionowa), więc „wie”, gdzie i jak się ustawić.
+- Ustawiam macierz modelu wagonika: translate(P) * rot(q). Box dodatkowo przesuwam lekko w lokalnym Y (N), a koła rysuję po bokach (w układzie lokalnym wagonika), więc „siedzi” na torze.
+- Minimalna prędkość (toggle): trzyma v co najmniej minSpeed (poza krańcami otwartego toru), więc wagonik „nie zdycha” na podjazdach.
+
+5) OpenGL — VAO/VBO/EBO i rysowanie
+- VBO (Vertex Buffer Object): bufor trzymający atrybuty wierzchołków (pozycje, normalne, UV). U nas dla track i terenu jest to wektor geometry::Vertex.
+- EBO (Element Buffer Object): bufor indeksów trójkątów (ułatwia współdzielenie wierzchołków).
+- VAO (Vertex Array Object): „przepis” – które atrybuty są gdzie (glVertexAttribPointer) i jakie bufory podpięte. Jeden VAO per mesh.
+- Shader programy: link zestawu vertex+fragment shader; uniformy (model, view, projection, światła, tekstury itd.).
+- Rysowanie:
+  • track: glUseProgram(trackProgram); ustaw uniformy; bind tekstur; glBindVertexArray(mesh.VAO); glDrawElements(...).
+  • terrain: analogicznie do track, inne uniformy (mgła).
+  • wagonik: prosty shader z kolorem; rysuję box (VAO sześcianu) i po nim 4 koła (VAO cylindra), każdy z własnym modelem.
+- Sprzątanie: deleteProgramy, deleteTextures, deleteVertexArrays/Buffers; oraz releaseGL() dla obiektów wyżej.
+
+6) Shadery — „linijka po linijce” (co i dlaczego)
+6.1) assets/shaders/track.vert
+  #version 330 core
+  layout(location=0) in vec3 aPos;  // pozycja
+  layout(location=1) in vec3 aNormal; // normalna
+  layout(location=2) in vec2 aUV; // UV
+  uniform mat4 model, view, projection;
+  out VS { vec3 posWS; vec3 nWS; vec2 uv; } v;
+  void main(){
+    vec4 pWS = model * vec4(aPos,1.0); // pozycja w świecie
+    v.posWS = pWS.xyz;
+    // macierz normalnych – bierze pod uwagę niejednorodne skalowania
+    v.nWS = mat3(transpose(inverse(model))) * aNormal; // normalna w świecie
+    v.uv = aUV;
+    gl_Position = projection * view * pWS; // pozycja klip
+  }
+  Dlaczego tak: normal matrix to standard przy skalach ≠1. Wysyłamy do fragment shadera pozycję/normale w świecie i UV.
+
+6.2) assets/shaders/track.frag
+  #version 330 core
+  in VS { vec3 posWS; vec3 nWS; vec2 uv; } v;
+  out vec4 FragColor;
+  uniform sampler2D texAlbedo; // kolor stali
+  uniform sampler2D texSpec;   // maska specular (L)
+  uniform vec3 uCamPos;        // do wektora V
+  uniform vec3 dirLightDir;    // kierunek światła (znormalizowany)
+  uniform vec3 dirLightColor;  // kolor światła kierunkowego
+  uniform vec3 pointPos;       // pozycja punktowego (wagonik)
+  uniform vec3 pointColor;     // kolor punktowego
+  uniform float pointRange;    // zasięg punktowego
+  void main(){
+    vec3 albedo = texture(texAlbedo, v.uv).rgb; // kolor materiału
+    float specMask = texture(texSpec, v.uv).r;  // siła refleksu
+    vec3 N = normalize(v.nWS);
+    vec3 V = normalize(uCamPos - v.posWS);
+    // światło kierunkowe – Blinn–Phong
+    vec3 Ld = normalize(-dirLightDir);
+    vec3 Hd = normalize(Ld + V);
+    float ndl = max(dot(N, Ld), 0.0);
+    float ndh = max(dot(N, Hd), 0.0);
+    float specD = pow(ndh, 64.0) * specMask;
+    vec3 color = 0.03 * albedo;              // ambient (tło)
+    color += albedo * dirLightColor * ndl;   // dyfuza
+    color += dirLightColor * specD;          // spekular
+    // punktowe (wagonik)
+    vec3 Lp = pointPos - v.posWS;
+    float d = length(Lp);
+    float att = clamp(1.0 - d/pointRange, 0.0, 1.0);
+    if(att > 0.0){
+      Lp /= max(d, 1e-6);
+      vec3 Hp = normalize(Lp + V);
+      float ndlp = max(dot(N, Lp), 0.0);
+      float ndhp = max(dot(N, Hp), 0.0);
+      float specP = pow(ndhp, 64.0) * specMask;
+      color += (albedo * pointColor * ndlp + pointColor * specP) * att;
+    }
+    FragColor = vec4(color, 1.0);
+  }
+  Dlaczego tak: najprostszy Blinn–Phong + dodatkowe światło przy wagoniku, żeby lekko „ożywić” stal.
+
+6.3) assets/shaders/terrain.vert
+  #version 330 core
+  layout(location=0) in vec3 aPos;
+  layout(location=1) in vec3 aNrm;
+  layout(location=2) in vec2 aUV;
+  uniform mat4 model, view, projection;
+  out VS { vec3 PosWS; vec3 NrmWS; vec2 uv; } v;
+  void main(){
+    vec4 posWS = model * vec4(aPos,1.0);
+    v.PosWS = posWS.xyz;
+    mat3 normalMatrix = transpose(inverse(mat3(model)));
+    v.NrmWS = normalize(normalMatrix * aNrm);
+    v.uv = aUV;
+    gl_Position = projection * view * posWS;
+  }
+
+6.4) assets/shaders/terrain.frag
+  #version 330 core
+  in VS { vec3 PosWS; vec3 NrmWS; vec2 uv; } v;
+  out vec4 FragColor;
+  uniform sampler2D texAlbedo; // trawa/ziemia
+  uniform sampler2D texSpec;   // nieużywane
+  uniform sampler2D texNormal; // nieużywane
+  uniform vec3 uCamPos;
+  uniform vec3 dirLightDir, dirLightColor;
+  uniform vec3 fogColor; uniform float fogDensity;
+  void main(){
+    vec3 albedo = texture(texAlbedo, v.uv).rgb;
+    vec3 N = normalize(v.NrmWS);
+    vec3 L = normalize(-dirLightDir);
+    float ndl = max(dot(N,L), 0.0);
+    vec3 col = 0.04 * albedo;          // ambient
+    col += ndl * dirLightColor * albedo; // dyfuza
+    // mgła wykładnicza
+    float dist = length(uCamPos - v.PosWS);
+    float fog = 1.0 - exp(-fogDensity*fogDensity*dist*dist);
+    col = mix(col, fogColor, clamp(fog,0.0,1.0));
+    FragColor = vec4(col, 1.0);
+  }
+  Dlaczego tak: bardzo prosty shader do tła – światło i mgła dają minimum głębi.
+
+6.5) assets/shaders/car.vert / car.frag (wagonik)
+  car.vert:
+    aPos, uniformy model/view/projection, po prostu gl_Position = P*V*M*vec4(aPos,1).
+  car.frag:
+    stały kolor z uniformu uColor. Bez mgły i bez oświetlenia – maksymalna prostota.
+
+7) Uwagi końcowe i zależności
+- Sprzątanie zasobów (ważne dla poprawnego wywołania destruktorów GL):
+  • glDeleteProgram: terrainProgram, trackProgram, carShader,
+  • glDeleteTextures: zestaw tekstur trawa/stal,
+  • glDeleteVertexArrays/Buffers: VAO/VBO/EBO dla boxa i kół,
+  • Terrain::releaseGL(), Track::releaseGL(), ImGui shutdown, GLFW destroy.
+  • Dzięki temu nie ma wycieków VAO/VBO/EBO/programów/tekstur.
+- GLFW: okno, wejście klawiatury/myszy; GLAD: ładowanie funkcji GL.
+- ImGui: panele pomocnicze (Track Editor, Roll Editor, Car Controls).
+- Tekstury toru/terenu są SRGB (albedo) – GL_FRAMEBUFFER_SRGB włączony.
+- Brak zewnętrznych importerów modeli – wagonik jest teraz własną geometrią (sześcian + 4 koła).
+- Sprzątanie zasobów jest na końcu main: programy, tekstury, VAO/VBO/EBO, oraz releaseGL() dla Terrain i Track.
+
+To wszystko – plik opisuje cały przepływ: od splajnu i próbkowania, przez budowę ramek i roll, aż do renderingu i shaderów.

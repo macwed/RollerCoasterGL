@@ -1,12 +1,35 @@
 #version 330 core
+in VS { vec3 PosWS; vec3 NrmWS; vec2 uv; } v;
+out vec4 FragColor;
 
-in vec3 fragPos;    // data interpolated from vertex shader
-out vec4 FragColor; // result color
+// Tekstury (zostawiamy te same sloty dla zgodności)
+uniform sampler2D texAlbedo;
+uniform sampler2D texSpec;   // nieużywane w tym prostym shaderze terenu
+uniform sampler2D texNormal; // nieużywane w tym prostym shaderze terenu
 
-uniform float minH;
-uniform float maxH;
+// Oświetlenie i mgła
+uniform vec3 uCamPos;
+uniform vec3 dirLightDir;
+uniform vec3 dirLightColor;
+uniform vec3 fogColor;
+uniform float fogDensity;
 
 void main() {
-	float h = clamp((fragPos.y - minH) / (maxH - minH), 0.0, 1.0);
-	FragColor = mix(vec4(0.2,0.5,0.1,1), vec4(0.8,0.8,0.8,1), h);
+    vec3 albedo = texture(texAlbedo, v.uv).rgb;
+
+    vec3 N = normalize(v.NrmWS);
+    vec3 L = normalize(-dirLightDir);
+
+    float ndl = max(dot(N, L), 0.0);
+
+    // proste ambient + dyfuza
+    vec3 color = 0.04 * albedo;
+    color += ndl * dirLightColor * albedo;
+
+    // mgła wykładnicza
+    float dist = length(uCamPos - v.PosWS);
+    float fog = 1.0 - exp(-fogDensity * fogDensity * dist * dist);
+    color = mix(color, fogColor, clamp(fog, 0.0, 1.0));
+
+    FragColor = vec4(color, 1.0);
 }

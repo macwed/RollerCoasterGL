@@ -14,7 +14,6 @@
 #include "SimplexNoise.hpp"
 #include "math/Array_2D.hpp"
 
-
 Terrain::Terrain(int width, int height, int seed) :
     width_(width), height_(height), heightmap_(width, height), noise_(seed), vbo_(0), vao_(0), ibo_(0) {}
 void Terrain::releaseGL() {
@@ -35,7 +34,6 @@ void Terrain::releaseGL() {
 
 void Terrain::generate(float scale, float frequency, int octaves, float lacunarity, float persistence, float exponent,
                        float height_scale) {
-
 
     for (int y = 0; y < height_; y++) {
         for (int x = 0; x < width_; x++) {
@@ -96,7 +94,41 @@ void Terrain::generate(float scale, float frequency, int octaves, float lacunari
     }
     for (auto& n: normals_)
         n = glm::normalize(n);
+
+    float mPerTile = 2.f;
+
+    gpuVerts_.resize(vertices_.size());
+    for (size_t y = 0; y < height_; y++) {
+        for (size_t x = 0; x < width_; x++) {
+            size_t idx = y * width_ + x;
+            glm::vec2 uv = glm::vec2(x, y) / mPerTile;
+            gpuVerts_[idx] = {vertices_[idx], normals_[idx], uv};
+        }
+    }
 }
+
+float Terrain::sampleHeightBilinear(float x, float z) const {
+    int ix = static_cast<int>(std::floor(x));
+    int iz = static_cast<int>(std::floor(z));
+    float fx = x - static_cast<float>(ix);
+    float fz = z - static_cast<float>(iz);
+
+    auto H = [&](int X, int Z) {
+        X = std::clamp(X, 0, width_  - 1);
+        Z = std::clamp(Z, 0, height_ - 1);
+        return vertices_[Z * width_ + X].y;
+    };
+
+    float h00 = H(ix,   iz  );
+    float h10 = H(ix+1, iz  );
+    float h01 = H(ix,   iz+1);
+    float h11 = H(ix+1, iz+1);
+
+    float hx0 = glm::mix(h00, h10, fx);
+    float hx1 = glm::mix(h01, h11, fx);
+    return glm::mix(hx0, hx1, fz);
+}
+
 void Terrain::uploadToGPU() {
 
     if (vao_)
@@ -111,13 +143,16 @@ void Terrain::uploadToGPU() {
     glGenBuffers(1, &ibo_);
 
     glBindVertexArray(vao_);
-
     glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(vertices_.size() * sizeof(glm::vec3)), vertices_.data(),
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(gpuVerts_.size() * sizeof(TVertex)), gpuVerts_.data(),
                  GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), nullptr);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(TVertex), reinterpret_cast<void*>(offsetof(TVertex, pos)));
     glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(TVertex), reinterpret_cast<void*>((offsetof(TVertex, nrm))));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(TVertex), reinterpret_cast<void*>((offsetof(TVertex, uv))));
+    glEnableVertexAttribArray(2);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(indices_.size() * sizeof(unsigned int)),
@@ -131,12 +166,6 @@ void Terrain::draw() const {
     glBindVertexArray(vao_);
     glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indices_.size()), GL_UNSIGNED_INT, nullptr);
     glBindVertexArray(0);
-}
-
-float Terrain::getHeight(int x, int y) const {
-    if (x < 0 || x >= width_ || y < 0 || y >= height_)
-        return 0.0f;
-    return heightmap_(x, y);
 }
 
 float Terrain::minH() const {

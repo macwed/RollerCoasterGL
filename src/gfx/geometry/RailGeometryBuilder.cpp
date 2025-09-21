@@ -9,8 +9,8 @@
 
 namespace rc::gfx::geometry {
     bool RailGeometryBuilder::build(const RailParams& p) {
-        vertices_.clear();
-        indices_.clear();
+        mesh_.vertices.clear();
+        mesh_.indices.clear();
 
         const bool closed = p.closedLoop;
         if (frames_.size() < 2 || p.ringSides < 3 || p.gauge <= kEps || p.railRadius <= kEps)
@@ -37,8 +37,8 @@ namespace rc::gfx::geometry {
         const uint32_t quadsPerRailPerSeg = ring - 1u;
         const uint32_t trisTotal = segs * quadsPerRailPerSeg * rails * 2u;
 
-        vertices_.resize(vertsTotal);
-        indices_.resize(trisTotal * 3u);
+        mesh_.vertices.resize(vertsTotal);
+        mesh_.indices.resize(trisTotal * 3u);
 
         for (uint32_t i = 0; i < ringsTotal; ++i) {
             rings_(i, frames_[i].pos, frames_[i].N, frames_[i].B, p, ringsTotal, closedEff);
@@ -59,27 +59,27 @@ namespace rc::gfx::geometry {
                 uint32_t b = vidx(i, 0, rNext);
                 uint32_t c = vidx(j, 0, r);
                 uint32_t d = vidx(j, 0, rNext);
-                indices_[w++] = a;
-                indices_[w++] = b;
-                indices_[w++] = c;
-                indices_[w++] = b;
-                indices_[w++] = c;
-                indices_[w++] = d;
+                mesh_.indices[w++] = a;
+                mesh_.indices[w++] = b;
+                mesh_.indices[w++] = c;
+                mesh_.indices[w++] = b;
+                mesh_.indices[w++] = c;
+                mesh_.indices[w++] = d;
 
                 // prawa
                 a = vidx(i, 1, r);
                 b = vidx(i, 1, rNext);
                 c = vidx(j, 1, r);
                 d = vidx(j, 1, rNext);
-                indices_[w++] = a;
-                indices_[w++] = b;
-                indices_[w++] = c;
-                indices_[w++] = b;
-                indices_[w++] = c;
-                indices_[w++] = d;
+                mesh_.indices[w++] = a;
+                mesh_.indices[w++] = b;
+                mesh_.indices[w++] = c;
+                mesh_.indices[w++] = b;
+                mesh_.indices[w++] = c;
+                mesh_.indices[w++] = d;
             }
         }
-        assert(w == indices_.size());
+        assert(w == mesh_.indices.size());
         return true;
     }
 
@@ -106,8 +106,8 @@ namespace rc::gfx::geometry {
             glm::vec3 offset = circDir * radius;
             const float v = frames_[frameIdx].s * params.texScaleV;
 
-            vertices_[i + base] = {centerL + offset, circDir, {u, v}};
-            vertices_[i + base + ring] = {centerR + offset, circDir, {u, v}};
+            mesh_.vertices[i + base] = {centerL + offset, circDir, {v, u}};
+            mesh_.vertices[i + base + ring] = {centerR + offset, circDir, {v, u}};
         }
     }
 } // namespace rc::gfx::geometry

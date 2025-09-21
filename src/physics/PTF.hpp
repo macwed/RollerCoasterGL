@@ -23,7 +23,7 @@ namespace rc::physics {
 
     std::vector<common::Frame> buildFrames(const PathSampler& sampler, float ds, glm::vec3 globalUp,
                                            const MetaCallbacks& cb);
-    static inline glm::vec3 rotateAroundAxis(const glm::vec3& v, const glm::vec3& axis, float angle) {
+    static glm::vec3 rotateAroundAxis(const glm::vec3& v, const glm::vec3& axis, float angle) {
         return glm::angleAxis(angle, axis) * v;
     }
 } // namespace rc::physics

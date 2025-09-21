@@ -35,6 +35,7 @@ namespace rc::math {
         void addNode(const Node& node);
         void insertNode(std::size_t i, const Node& node);
         void moveNode(std::size_t i, const glm::vec3& newPos);
+        void setNodeRoll(std::size_t i, float roll);
         void removeNode(std::size_t i);
 
         [[nodiscard]] bool isNodeOnCurve(std::size_t i) const;

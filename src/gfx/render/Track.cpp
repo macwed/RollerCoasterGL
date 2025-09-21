@@ -4,72 +4,71 @@
 
 #include "Track.hpp"
 
+#include "physics/FrameCursor.hpp"
+
 #include <glad.h>
 #include <glm/glm.hpp>
 #include <span>
 
+#include "Track.hpp"
+#include <glm/gtx/norm.hpp>
+#include <glm/gtx/compatibility.hpp>
+
 namespace rc::gfx::render {
-    /*-------------------------------------------------TRACK::TRACK-------------------------------------------------------*/
-    Track::Track() : vbo_(0), vao_(0), ibo_(0) {}
-    Track::~Track() {
-        releaseGL();
-    }
+    using geometry::MeshOut;
+    using geometry::RailGeometryBuilder;
+    using geometry::SupportGeometryBuilder;
 
-    /*-------------------------------------------------TRACK::OpenGL&GPU--------------------------------------------------*/
+    void Track::build(const std::vector<common::Frame>& frames,
+                      const geometry::RailParams& railParams,
+                      const Terrain& terrain,
+                      const InfraParams& infra) {
+        MeshOut out;
 
-    void Track::releaseGL() {
-        if (vao_) {
-            glDeleteVertexArrays(1, &vao_);
-            vao_ = 0;
+        // Szyny
+        RailGeometryBuilder rgb(frames, out);
+        rgb.build(railParams);
+
+        //sampler ramek
+        physics::FrameCursor cursor(&frames, railParams.closedLoop, totalLength(frames));
+
+        //Poprzeczki co beamDs po łuku
+        SupportGeometryBuilder sgb(out);
+        const float gauge = railParams.gauge;
+
+        const float sMax = totalLength(frames);
+        for (float s = 0.0f; s < sMax - 1e-4f; s += infra.beamDs) {
+            glm::vec3 P, T, N, B; glm::quat q;
+            cursor.sample(s, P, T, N, B, q);
+            glm::vec3 L = P + B * (gauge*0.5f);
+            glm::vec3 R = P - B * (gauge*0.5f);
+            sgb.addBeamBox(L, R, infra.beamThick, infra.beamHeight);
         }
-        if (vbo_) {
-            glDeleteBuffers(1, &vbo_);
-            vbo_ = 0;
+
+        // Słupy co supportHoriz po ziemi! Nie po łuku
+        const glm::vec3 UP(0,1,0);
+        for (float s = 0.0f; s < sMax - 1e-4f; ) {
+            glm::vec3 P, T, N, B; glm::quat q;
+            cursor.sample(s, P, T, N, B, q);
+            float Ty = glm::dot(T, UP);
+            float cosPhi = std::sqrt(glm::max(0.0f, 1.0f - Ty*Ty));
+            float ds = infra.supportHoriz / glm::max(cosPhi, 0.05f); // clamp przy prawie pionie
+
+            float groundY = terrain.sampleHeightBilinear(P.x, P.z);
+            if (P.y - groundY > infra.minClearance) {
+                glm::vec3 bottom(P.x, groundY, P.z);
+                sgb.addSupportCylinder(P, bottom, infra.supportRadius, infra.supportSides);
+                // stopka
+                sgb.addFootDisk(bottom, infra.supportRadius*2.2f, 12);
+            }
+            s += ds;
         }
-        if (ibo_) {
-            glDeleteBuffers(1, &ibo_);
-            ibo_ = 0;
-        }
-    }
 
-    void Track::setMesh(std::span<const glm::vec3> vertices, std::span<const uint32_t> indices) {
-        points_.assign(vertices.begin(), vertices.end());
-        indices_.assign(indices.begin(), indices.end());
-    }
-
-    void Track::uploadToGPU() {
-        if (vao_)
-            glDeleteVertexArrays(1, &vao_);
-        if (vbo_)
-            glDeleteBuffers(1, &vbo_);
-        if (ibo_)
-            glDeleteBuffers(1, &ibo_);
-
-        glGenVertexArrays(1, &vao_);
-        glGenBuffers(1, &vbo_);
-        glGenBuffers(1, &ibo_);
-
-        glBindVertexArray(vao_);
-
-        glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-        glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(points_.size() * sizeof(glm::vec3)), points_.data(),
-                     GL_STATIC_DRAW);
-
-        // Position-only layout: tightly packed glm::vec3
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), nullptr);
-        glEnableVertexAttribArray(0);
-
-
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(indices_.size() * sizeof(glm::uint32_t)),
-                     indices_.data(), GL_STATIC_DRAW);
-
-        glBindVertexArray(0);
-    }
-
-    void Track::draw() const {
-        glBindVertexArray(vao_);
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indices_.size()), GL_UNSIGNED_INT, nullptr);
-        glBindVertexArray(0);
+        // Upload do GPU
+        Mesh steel;
+        steel.setData(out.vertices, out.indices);
+        steel_.release();
+        steel_ = std::move(steel);
+        steel_.uploadToGPU();
     }
 } // namespace rc::gfx::render

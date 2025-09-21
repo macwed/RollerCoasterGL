@@ -29,23 +29,27 @@ namespace rc::gfx::geometry {
         glm::vec2 uv;
     };
 
+    struct MeshOut {
+        std::vector<Vertex> vertices; // (pos, normal, uv)
+        std::vector<uint32_t> indices;
+    };
+
     class RailGeometryBuilder {
     public:
-        explicit RailGeometryBuilder(std::span<const common::Frame> frames) : frames_(frames){};
+        explicit RailGeometryBuilder(std::span<const common::Frame> frames, MeshOut& mesh) : frames_(frames), mesh_(mesh) {};
 
         bool build(const RailParams& p);
 
         [[nodiscard]] std::span<const Vertex> vertices() const {
-            return vertices_;
+            return mesh_.vertices;
         }
         [[nodiscard]] std::span<const uint32_t> indices() const {
-            return indices_;
+            return mesh_.indices;
         }
 
     private:
         std::span<const common::Frame> frames_;
-        std::vector<Vertex> vertices_; //(pos, normal, uv)
-        std::vector<uint32_t> indices_;
+        MeshOut& mesh_;
         void rings_(uint32_t frameIdx, const glm::vec3& centerPos, const glm::vec3& N, const glm::vec3& B,
                     const RailParams& params, uint32_t ringsTotal, bool closedEff);
     };

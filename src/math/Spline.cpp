@@ -26,6 +26,11 @@ namespace rc::math {
             throw std::out_of_range("Spline::moveNode index out of range");
         nodes_[i].pos = newPos;
     }
+    void Spline::setNodeRoll(std::size_t i, float roll) {
+        if (i >= nodes_.size())
+            throw std::out_of_range("Spline::setNodeRoll index out of range");
+        nodes_[i].roll = roll;
+    }
     void Spline::removeNode(std::size_t i) {
         if (i >= nodes_.size())
             throw std::out_of_range("Spline::removeNode index out of range");

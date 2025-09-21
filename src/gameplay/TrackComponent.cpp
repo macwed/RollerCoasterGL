@@ -119,16 +119,39 @@ namespace rc::gameplay {
         for (std::size_t i = 0; i < nodeMeta_.size(); ++i) {
             float s = spline_.isNodeOnCurve(i) ? spline_.sAtNode(i)
                                                : approximateSForPoint_(spline_, spline_.getNode(i).pos, 0.f, L, 0.05f);
-            rollKeys_.push_back({s, nodeMeta_[i].userRoll});
+            rollKeys_.push_back({s, spline_.getNode(i).roll});
         }
         std::ranges::sort(rollKeys_, [](const common::RollKey& a, const common::RollKey& b) { return a.s < b.s; });
 
+        // merge by s and unwrap angles to keep continuity (avoid large jumps across +/-pi)
         std::vector<common::RollKey> merged;
-        for (const auto& k: rollKeys_) {
-            if (!merged.empty() && std::abs(k.s - merged.back().s) < mergeEps)
+        auto wrapPi = [](float a) {
+            // wrap to (-pi, pi]
+            float x = std::fmod(a + glm::pi<float>(), glm::two_pi<float>());
+            if (x <= 0.f) x += glm::two_pi<float>();
+            return x - glm::pi<float>();
+        };
+
+        float prevS = -std::numeric_limits<float>::infinity();
+        float prevAdj = 0.f;
+        bool first = true;
+        for (const auto& k : rollKeys_) {
+            if (!merged.empty() && std::abs(k.s - merged.back().s) < mergeEps) {
+                // overwrite same-s key
                 merged.back().roll = k.roll;
-            else
-                merged.push_back(k);
+                continue;
+            }
+            float r = k.roll;
+            if (first) {
+                prevAdj = r;
+                merged.push_back({k.s, prevAdj});
+                first = false;
+            } else {
+                float delta = wrapPi(r - prevAdj);
+                prevAdj = prevAdj + delta;
+                merged.push_back({k.s, prevAdj});
+            }
+            prevS = k.s;
         }
         rollKeys_.swap(merged);
     }
@@ -191,40 +214,42 @@ namespace rc::gameplay {
     }
 
     float TrackComponent::manualRollAtS(float s) const {
-        if (rollKeys_.empty())
-            return 0.f;
-        if (rollKeys_.size() == 1)
-            return rollKeys_[0].roll;
+        if (rollKeys_.empty()) return 0.f;
+        if (rollKeys_.size() == 1) return rollKeys_.front().roll;
 
         const float L = spline_.totalLength();
-        auto wrap = [&](float x) { return std::fmod(std::fmod(x, L) + L, L); };
+        auto wrapS = [&](float x) { return std::fmod(std::fmod(x, L) + L, L); };
+        auto wrapPi = [](float a) {
+            float x = std::fmod(a + glm::pi<float>(), glm::two_pi<float>());
+            if (x <= 0.f) x += glm::two_pi<float>();
+            return x - glm::pi<float>();
+        };
 
-        if (spline_.isClosed())
-            s = wrap(s);
+        float ss = s;
+        if (spline_.isClosed()) ss = wrapS(s);
         else {
-            if (s <= rollKeys_.front().s)
-                return rollKeys_.front().roll;
-            if (s >= rollKeys_.back().s)
-                return rollKeys_.back().roll;
+            if (ss <= rollKeys_.front().s) return rollKeys_.front().roll;
+            if (ss >= rollKeys_.back().s)  return rollKeys_.back().roll;
         }
 
-        auto it = std::upper_bound(rollKeys_.begin(), rollKeys_.end(), s,
+        auto it = std::upper_bound(rollKeys_.begin(), rollKeys_.end(), ss,
                                    [](float v, const common::RollKey& k) { return v < k.s; });
         const common::RollKey& k1 = (it == rollKeys_.begin()) ? rollKeys_.back() : *(it - 1);
         const common::RollKey& k2 = (it == rollKeys_.end()) ? rollKeys_.front() : *it;
 
         float s1 = k1.s, s2 = k2.s;
         float ds = s2 - s1;
-        if (spline_.isClosed() && ds < 0.f)
-            ds += L;
-        if (std::abs(ds) < 1e-6f)
-            return k1.roll;
+        if (spline_.isClosed() && ds < 0.f) ds += L;
+        if (std::abs(ds) < 1e-6f) return k1.roll;
 
-        float d = s - s1;
-        if (spline_.isClosed() && d < 0.f)
-            d += L;
+        float d = ss - s1;
+        if (spline_.isClosed() && d < 0.f) d += L;
         float t = d / ds;
-        return k1.roll * (1.f - t) + k2.roll * t;
+
+        float r1 = k1.roll;
+        float r2 = k2.roll;
+        float delta = wrapPi(r2 - r1);
+        return r1 + delta * t;
     }
 
     glm::vec3 TrackComponent::positionAtS(float s) const {
@@ -238,32 +263,7 @@ namespace rc::gameplay {
         return tan;
     }
 
-    [[deprecated]]common::Frame TrackComponent::frameAtS(float s) const {
-        if (frames_.empty())
-            return {positionAtS(s), tangentAtS(s), {0.f, 1.f, 0.f}, {1.f, 0.f, 0.f}, s};
-
-        if (s <= frames_.front().s)
-            return frames_.front();
-        if (s >= frames_.back().s)
-            return frames_.back();
-
-        auto it = std::upper_bound(frames_.begin(), frames_.end(), s,
-                                   [](float v, const common::Frame& f) { return v < f.s; });
-
-        const common::Frame& a = *(it - 1);
-        const common::Frame& b = *it;
-        float t = (s - a.s) / (b.s - a.s);
-        t = clamp01(t);
-
-        common::Frame f;
-        f.s = s;
-        f.pos = glm::mix(a.pos, b.pos, t);
-        f.T = glm::normalize(glm::mix(a.T, b.T, t));
-        f.N = glm::normalize(glm::mix(a.N, b.N, t));
-        f.B = glm::normalize(glm::cross(f.T, f.N));
-        f.N = glm::normalize(glm::cross(f.B, f.T));
-        return f;
-    }
+    
 
     void TrackComponent::setClosed(bool v) {
         spline_.setClosed(v);
@@ -283,5 +283,75 @@ namespace rc::gameplay {
             }
         }
         markDirty();
+    }
+
+    void TrackComponent::setNodeRoll(std::size_t i, float roll) {
+        spline_.setNodeRoll(i, roll);
+        dirtyMeta_ = true;
+        dirtyFrames_ = true;
+    }
+
+    // -------------------- Edge helpers --------------------
+    static inline bool nodeToSeg(const math::Spline& s, std::size_t nodeIdx, std::size_t& segOut) {
+        const std::size_t segCount = s.segmentCount();
+        if (segCount == 0) return false;
+        if (s.isClosed()) {
+            segOut = nodeIdx % s.nodeCount();
+            return true;
+        }
+        if (!s.isNodeOnCurve(nodeIdx)) return false;
+        segOut = s.segmentIndexStartingAtNode(nodeIdx);
+        return segOut < segCount;
+    }
+
+    bool TrackComponent::setLinearBySegment(std::size_t segIdx) {
+        if (segIdx >= edgeMeta_.size()) return false;
+        auto& e = edgeMeta_[segIdx];
+        e.type = common::EdgeType::Linear;
+        dirtyFrames_ = true;
+        return true;
+    }
+    bool TrackComponent::setLinearByNode(std::size_t nodeIdx) {
+        std::size_t seg{}; if (!nodeToSeg(spline_, nodeIdx, seg)) return false;
+        return setLinearBySegment(seg);
+    }
+
+    bool TrackComponent::setCircularBySegment(std::size_t segIdx, glm::vec3 center, glm::vec3 normal,
+                                              float radius, float turns, bool shortest) {
+        if (segIdx >= edgeMeta_.size()) return false;
+        auto& e = edgeMeta_[segIdx];
+        e.type = common::EdgeType::Circular;
+        e.circleCenter = center;
+        e.circleNormal = normal;
+        e.circleRadius = radius;
+        e.circleTurns = turns;
+        e.circleShortest = shortest;
+        dirtyFrames_ = true;
+        return true;
+    }
+    bool TrackComponent::setCircularByNode(std::size_t nodeIdx, glm::vec3 center, glm::vec3 normal,
+                                           float radius, float turns, bool shortest) {
+        std::size_t seg{}; if (!nodeToSeg(spline_, nodeIdx, seg)) return false;
+        return setCircularBySegment(seg, center, normal, radius, turns, shortest);
+    }
+
+    //DO NAPRAWY
+    bool TrackComponent::setHelixBySegment(std::size_t segIdx, glm::vec3 axisPoint, glm::vec3 axisDir,
+                                           float radius, float pitch, float turns) {
+        if (segIdx >= edgeMeta_.size()) return false;
+        auto& e = edgeMeta_[segIdx];
+        e.type = common::EdgeType::Helix;
+        e.helixAxisPoint = axisPoint;
+        e.helixAxisDir = axisDir;
+        e.helixRadius = radius;
+        e.helixPitch = pitch;
+        e.helixTurns = turns;
+        dirtyFrames_ = true;
+        return true;
+    }
+    bool TrackComponent::setHelixByNode(std::size_t nodeIdx, glm::vec3 axisPoint, glm::vec3 axisDir,
+                                        float radius, float pitch, float turns) {
+        std::size_t seg{}; if (!nodeToSeg(spline_, nodeIdx, seg)) return false;
+        return setHelixBySegment(seg, axisPoint, axisDir, radius, pitch, turns);
     }
 } // namespace rc::gameplay
